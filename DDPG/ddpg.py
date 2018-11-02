@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch.optim import Adam,SGD
 
 
-#from agent_pool import Agent_pool
+from model_pool import Model_pool
 from memory import Memory
 from sgld import SGLD
 
@@ -32,17 +32,13 @@ class DDPG(object):
         self.SGLD_mode = SGLD_mode
         self.num_pseudo_batches = num_pseudo_batches
         
+        #pool_mode 0: no model pool, 1: actor only, 2: critic only, 3: both A&C
         self.pool_mode = pool_mode
         self.pool_size = pool_size
         
         self.with_cuda = with_cuda
         
     def setup(self, actor, critic, memory):
-        #if self.pool_size>0:
-        #    self.agent_pool = Agent_pool(self.pool_size)
-            
-        self.memory = memory
-    
         self.actor         = copy.deepcopy(actor)
         self.actor_target  = copy.deepcopy(actor)
         self.critic        = copy.deepcopy(critic)
@@ -66,7 +62,13 @@ class DDPG(object):
                                       num_burn_in_steps = 1000)
         else:
             self.critic_optim  = Adam(self.critic.parameters(), lr=self.critic_lr)
-            
+        
+        self.memory = memory
+        
+        if self.pool_mode>0:
+            assert self.pool_size>0
+            self.agent_pool = Model_pool(self.pool_size)
+                        
     def reset_noise(self):
         if self.action_noise is not None:
             self.action_noise.reset()
@@ -159,50 +161,27 @@ class DDPG(object):
         buffer = io.BytesIO()
         torch.save(self.actor, buffer)
         return buffer
-
         
-    '''
-    #TODO recode agent pool
-    def append_actor(self):
-        self.agent_pool.actor_append(self.actor.state_dict(),self.actor_target.state_dict())
-        
-    def pick_actor(self):
-        actor,actor_target = self.agent_pool.get_actor()
-        self.actor.load_state_dict(actor)
-        self.actor_target.load_state_dict(actor_target)
-    
-    def append_critic(self):
-        self.agent_pool.critic_append(self.critic.state_dict(),self.critic_target.state_dict())
-        
-    def pick_critic(self):
-        critic,critic_target = self.agent_pool.get_critic()
-        self.critic.load_state_dict(critic)
-        self.critic_target.load_state_dict(critic_target)
-    
-    def append_actor_critic(self):
-        self.agent_pool.actor_append(self.actor.state_dict(),self.actor_target.state_dict())
-        self.agent_pool.critic_append(self.critic.state_dict(),self.critic_target.state_dict())
-        
-    def pick_actor_critic(self):
-        actor,actor_target,critic,critic_target = self.agent_pool.get_agent()
-        self.actor.load_state_dict(actor)
-        self.actor_target.load_state_dict(actor_target)
-        self.critic.load_state_dict(critic)
-        self.critic_target.load_state_dict(critic_target)
-    
     def append_agent(self):
-        if self.pool_mode == 1:
-            self.append_actor()
-        elif self.pool_mode ==2:
-            self.append_critic()
-        elif self.pool_mode ==3:
-            self.append_actor_critic()
+        assert pool_mode is not 0:
+        model_dict = {}
+        if (self.pool_mode==1) or (self.pool_mode==3):
+            model_dict['actor'] = copy.deepcopy(self.actor)
+            model_dict['actor_target'] = copy.deepcopy(self.actor_target)
+        if (self.pool_mode==2) or (self.pool_mode==3):
+            model_dict['critic'] = copy.deepcopy(self.critic)
+            model_dict['critic_target'] = copy.deepcopy(self.critic_target)
+        self.agent_pool.model_append(model_dict)
 
-    def pick_agent(self):
-        if self.pool_mode == 1:
-            self.pick_actor()
-        elif self.pool_mode ==2:
-            self.pick_critic()
-        elif self.pool_mode ==3:
-            self.pick_actor_critic()
-    '''
+    def pick_agent(self, id = None):
+        # id: -1:last agent; None: random agent; 0~pool_size-1: specific agent
+        assert pool_mode is not 0:
+        model_dict = self.agent_pool.get_model(id)
+        if (self.pool_mode==1) or (self.pool_mode==3):
+            self.actor.load_state_dict(model_dict['actor'].state_dict())
+            self.actor_target.load_state_dict(model_dict['actor_target'].state_dict())
+        if (self.pool_mode==2) or (self.pool_mode==3):
+            self.critic.load_state_dict(model_dict['critic'].state_dict())
+            self.critic_target.load_state_dict(model_dict['critic_target'].state_dict())
+
+    
