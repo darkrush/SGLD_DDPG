@@ -49,7 +49,7 @@ if __name__ == "__main__":
     parser.add_argument('--SGLD-mode', default=0, type=int, help='SGLD mode, 0: no SGLD, 1: actor sgld only, 2: critic sgld only, 3: both actor & critic')
     parser.add_argument('--num-pseudo-batches', default=1e6, type=int, help='SGLD pseude batch number')
     parser.add_argument('--pool-mode', default=0, type=int, help='agent pool mode, 0: no pool, 1: actor pool only, 2: critic pool only, 3: both actor & critic')
-    parser.add_argument('--pool-size', default=10, type=int, help='agent pool size, 0 means no agent pool')
+    parser.add_argument('--pool-size', default=3, type=int, help='agent pool size, 0 means no agent pool')
     parser.add_argument('--obs-norm', dest='obs_norm', action='store_true',help='enable observation normalization')
     parser.set_defaults(obs_norm=False)
     parser.add_argument('--buffer-size', default=1e6, type=int, help='memory buffer size')

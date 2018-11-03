@@ -55,6 +55,7 @@ class DDPG(object):
                                      num_burn_in_steps = 1000)
         else :
             self.actor_optim  = Adam(self.actor.parameters(), lr=self.actor_lr)
+            
         if (self.SGLD_mode == 2)or(self.SGLD_mode == 3):
             self.critic_optim  = SGLD(self.critic.parameters(),
                                       lr=self.critic_lr/self.num_pseudo_batches,
@@ -163,25 +164,27 @@ class DDPG(object):
         return buffer
         
     def append_agent(self):
-        assert pool_mode is not 0:
+        if self.pool_mode is 0:
+            return
         model_dict = {}
         if (self.pool_mode==1) or (self.pool_mode==3):
-            model_dict['actor'] = copy.deepcopy(self.actor)
-            model_dict['actor_target'] = copy.deepcopy(self.actor_target)
+            model_dict['actor'] = copy.deepcopy(self.actor.state_dict())
+            #model_dict['actor_target'] = copy.deepcopy(self.actor_target.state_dict())
         if (self.pool_mode==2) or (self.pool_mode==3):
-            model_dict['critic'] = copy.deepcopy(self.critic)
-            model_dict['critic_target'] = copy.deepcopy(self.critic_target)
+            model_dict['critic'] = copy.deepcopy(self.critic.state_dict())
+            #model_dict['critic_target'] = copy.deepcopy(self.critic_target.state_dict())
         self.agent_pool.model_append(model_dict)
 
     def pick_agent(self, id = None):
         # id: -1:last agent; None: random agent; 0~pool_size-1: specific agent
-        assert pool_mode is not 0:
+        if self.pool_mode is 0:
+            return
         model_dict = self.agent_pool.get_model(id)
         if (self.pool_mode==1) or (self.pool_mode==3):
-            self.actor.load_state_dict(model_dict['actor'].state_dict())
-            self.actor_target.load_state_dict(model_dict['actor_target'].state_dict())
+            self.actor.load_state_dict(model_dict['actor'])
+            #self.actor_target.load_state_dict(model_dict['actor_target'])
         if (self.pool_mode==2) or (self.pool_mode==3):
-            self.critic.load_state_dict(model_dict['critic'].state_dict())
-            self.critic_target.load_state_dict(model_dict['critic_target'].state_dict())
+            self.critic.load_state_dict(model_dict['critic'])
+            #self.critic_target.load_state_dict(model_dict['critic_target'])
 
     

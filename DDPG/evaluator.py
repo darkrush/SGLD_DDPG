@@ -78,7 +78,6 @@ class Evaluator(object):
                     action = self.actor(obs).cpu().numpy().squeeze(0)
                 action = np.clip(action, -1., 1.)
                 action = action * self.action_scale + self.action_bias
-                
                 observation, reward, done, info = self.env.step(action)
                 if self.max_episode_length and episode_steps >= self.max_episode_length -1:
                     done = True
@@ -88,7 +87,6 @@ class Evaluator(object):
 
                 episode_reward += reward
                 episode_steps += 1
-
             result.append(episode_reward)
 
         result = np.array(result).reshape(-1,1)
@@ -137,7 +135,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     if args.argfile_dir is not None:
-        with open(args.argfile_dir) as f:
+        with open(args.argfile_dir,'rb') as f:
             exp_args = pickle.load(f)
             args.env = exp_args.env
             args.model_dir = exp_args.result_dir
