@@ -38,7 +38,7 @@ if __name__ == "__main__":
     parser.add_argument('--actor-lr', default=0.0001, type=float, help='actor net learning rate')
     parser.add_argument('--critic-lr', default=0.001, type=float, help='critic net learning rate')
     parser.add_argument('--lr-decay', default=0, type=float, help='critic lr decay')
-    parser.add_argument('--l2-critic', default=0.00, type=float, help='critic l2 regularization')
+    parser.add_argument('--l2-critic', default=0.0001, type=float, help='critic l2 regularization')
     parser.add_argument('--batch-size', default=128, type=int, help='minibatch size')
     parser.add_argument('--discount', default=0.99, type=float, help='reward discout')
     parser.add_argument('--tau', default=0.001, type=float, help='moving average for target network')

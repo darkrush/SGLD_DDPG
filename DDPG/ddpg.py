@@ -61,9 +61,10 @@ class DDPG(object):
             self.critic_optim  = SGLD(self.critic.parameters(),
                                       lr=self.critic_lr,
                                       num_pseudo_batches = self.num_pseudo_batches,
-                                      num_burn_in_steps = 1000)
+                                      num_burn_in_steps = 1000,
+                                      weight_decay = self.l2_critic)
         else:
-            self.critic_optim  = Adam(self.critic.parameters(), lr=self.critic_lr)
+            self.critic_optim  = Adam(self.critic.parameters(), lr=self.critic_lr, weight_decay = self.l2_critic)
         
         self.memory = memory
         
@@ -97,13 +98,6 @@ class DDPG(object):
 
         q_batch = self.critic([tensor_obs0, batch['actions']])
         value_loss = nn.functional.mse_loss(q_batch, target_q_batch)
-        
-        l2_coef = torch.tensor(self.l2_critic).cuda()
-        l2_reg = torch.tensor(0.).cuda()
-        for name,param in self.critic.named_parameters():
-            if ('LN' not in name ) and 'bias' not in name :
-                l2_reg += torch.norm(param)
-        value_loss += l2_coef*l2_reg
         value_loss.backward()
         self.critic_optim.step()
         
