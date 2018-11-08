@@ -128,9 +128,9 @@ class DDPG(object):
     
     def update_num_pseudo_batches(self):
         if isinstance(self.actor_optim,SGLD):
-            self.actor_optim.param_groups[0]['num_pseudo_batches'] = self.nb_entries
+            self.actor_optim.param_groups[0]['num_pseudo_batches'] = self.memory.nb_entries
         if isinstance(self.critic_optim,SGLD):
-            self.critic_optim.param_groups[0]['num_pseudo_batches'] = self.nb_entries
+            self.critic_optim.param_groups[0]['num_pseudo_batches'] = self.memory.nb_entries
             
 
     def apply_lr_decay(self):
