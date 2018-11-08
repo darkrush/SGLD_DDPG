@@ -16,7 +16,8 @@ class SGLD(Optimizer):
                  precondition_decay_rate=0.95,
                  num_pseudo_batches=1,
                  num_burn_in_steps=3000,
-                 diagonal_bias=1e-8) -> None:
+                 diagonal_bias=1e-8,
+                 weight_decay = 0.0) -> None:
         """ Set up a SGLD Optimizer.
 
         Parameters
@@ -57,6 +58,7 @@ class SGLD(Optimizer):
             num_pseudo_batches=num_pseudo_batches,
             num_burn_in_steps=num_burn_in_steps,
             diagonal_bias=1e-8,
+            weight_decay = weight_decay
         )
         super().__init__(params, defaults)
 
@@ -67,15 +69,17 @@ class SGLD(Optimizer):
             loss = closure()
 
         for group in self.param_groups:
+            lr = group["lr"]
+            weight_decay = group['weight_decay']
+            diagonal_bias = group["diagonal_bias"]
+            num_pseudo_batches = group["num_pseudo_batches"]
+            precondition_decay_rate = group["precondition_decay_rate"]
+            num_burn_in_steps = group["num_burn_in_steps"]
             for parameter in group["params"]:
-
+                
                 if parameter.grad is None:
                     continue
-
                 state = self.state[parameter]
-                lr = group["lr"]
-                num_pseudo_batches = group["num_pseudo_batches"]
-                precondition_decay_rate = group["precondition_decay_rate"]
                 gradient = parameter.grad.data
 
                 #  State initialization {{{ #
@@ -87,34 +91,31 @@ class SGLD(Optimizer):
                 #  }}} State initialization #
 
                 state["iteration"] += 1
-
                 momentum = state["momentum"]
 
                 #  Momentum update {{{ #
-                momentum.add_(
-                    (1.0 - precondition_decay_rate) * ((gradient ** 2) - momentum)
-                )
+                
+                momentum.add_((1.0 - precondition_decay_rate) * ((gradient ** 2) - momentum))
                 #  }}} Momentum update #
 
-                if state["iteration"] > group["num_burn_in_steps"]:
-                    sigma = (1. / torch.sqrt(torch.tensor(lr))).cuda()
+                if state["iteration"] > num_burn_in_steps:
+                    sigma = torch.ones_like(parameter)
                 else:
                     sigma = torch.zeros_like(parameter)
 
                 preconditioner = (
-                    1. / torch.sqrt(momentum + group["diagonal_bias"])
+                    1. / torch.sqrt(momentum + diagonal_bias)
                 )
-
+                
+                weight_decay_gradient = torch.zeros_like(parameter).add_(weight_decay, parameter.data)
                 
                 scaled_grad = (
-                    0.5 * preconditioner * gradient * num_pseudo_batches +
-                    torch.normal(
-                        mean=torch.zeros_like(gradient),
-                        std=torch.ones_like(gradient)
-                    ) * sigma * torch.sqrt(preconditioner)
+                    0.5 * lr * preconditioner * gradient +
+                    0.5 * lr / num_pseudo_batches * preconditioner * weight_decay_gradient +
+                    sigma * torch.sqrt(lr*preconditioner/num_pseudo_batches) * torch.normal(mean=torch.zeros_like(gradient),std=torch.ones_like(gradient))
                 )
                 
                 
-                parameter.data.add_(-lr * scaled_grad)
+                parameter.data.add_(- scaled_grad)
 
         return loss

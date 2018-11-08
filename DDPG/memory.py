@@ -3,8 +3,8 @@ import torch
 class Memory(object):
     def __init__(self, limit, action_shape, observation_shape, with_cuda):
         self.limit = limit
-        self.next_entry = 0
-        self.nb_entries = 0
+        self._next_entry = 0
+        self._nb_entries = 0
         self.with_cuda = with_cuda
         
         self.data_buffer = {}
@@ -21,23 +21,27 @@ class Memory(object):
         return {key: value[idx] for key,value in self.data_buffer.items()}
     
     def sample(self, batch_size):
-        batch_idxs = torch.randint(0,self.nb_entries, (batch_size,),dtype = torch.long)
+        batch_idxs = torch.randint(0,self._nb_entries, (batch_size,),dtype = torch.long)
         if self.with_cuda:
             batch_idxs = batch_idxs.cuda()
         return {key: torch.index_select(value,0,batch_idxs) for key,value in self.data_buffer.items()}
-
+    
+    @property
+    def nb_entries(self):
+        return self._nb_entries
+    
     def reset(self):
-        self.next_entry = 0
-        self.nb_entries = 0
+        self._next_entry = 0
+        self._nb_entries = 0
         
     def append(self, obs0, action, reward, obs1, terminal1):
-        self.data_buffer['obs0'][self.next_entry] = torch.as_tensor(obs0)
-        self.data_buffer['obs1'][self.next_entry] = torch.as_tensor(obs1)
-        self.data_buffer['actions'][self.next_entry] = torch.as_tensor(action)
-        self.data_buffer['rewards'][self.next_entry] = torch.as_tensor(reward)
-        self.data_buffer['terminals1'][self.next_entry] = torch.as_tensor(terminal1)
+        self.data_buffer['obs0'][self._next_entry] = torch.as_tensor(obs0)
+        self.data_buffer['obs1'][self._next_entry] = torch.as_tensor(obs1)
+        self.data_buffer['actions'][self._next_entry] = torch.as_tensor(action)
+        self.data_buffer['rewards'][self._next_entry] = torch.as_tensor(reward)
+        self.data_buffer['terminals1'][self._next_entry] = torch.as_tensor(terminal1)
         
-        if self.nb_entries < self.limit:
-            self.nb_entries += 1
+        if self._nb_entries < self.limit:
+            self._nb_entries += 1
             
-        self.next_entry = (self.next_entry + 1)%self.limit
+        self._next_entry = (self._next_entry + 1)%self.limit

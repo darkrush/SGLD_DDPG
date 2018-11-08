@@ -77,6 +77,7 @@ class DDPG_trainer(object):
                         self.current_episode_reward = 0.
                 
                 #update agent for nb_train_steps times
+                self.agent.update_num_pseudo_batches()
                 cl_list = []
                 al_list = []
                 for t_train in range(self.nb_train_steps):

@@ -50,15 +50,16 @@ class DDPG(object):
             self.critic_target.cuda()
         if (self.SGLD_mode == 1)or(self.SGLD_mode == 3):
             self.actor_optim  = SGLD(self.actor.parameters(),
-                                     lr=self.actor_lr/self.num_pseudo_batches,
+                                     lr=self.actor_lr,
                                      num_pseudo_batches = self.num_pseudo_batches,
                                      num_burn_in_steps = 1000)
         else :
             self.actor_optim  = Adam(self.actor.parameters(), lr=self.actor_lr)
             
         if (self.SGLD_mode == 2)or(self.SGLD_mode == 3):
+            #self.l2_critic*=self.num_pseudo_batches
             self.critic_optim  = SGLD(self.critic.parameters(),
-                                      lr=self.critic_lr/self.num_pseudo_batches,
+                                      lr=self.critic_lr,
                                       num_pseudo_batches = self.num_pseudo_batches,
                                       num_burn_in_steps = 1000)
         else:
@@ -90,8 +91,7 @@ class DDPG(object):
                 self.actor_target(tensor_obs1),
             ])
         
-            target_q_batch = batch['rewards'] + \
-                self.discount*(1-batch['terminals1'])*next_q_values
+            target_q_batch = batch['rewards'] + self.discount*(1-batch['terminals1'])*next_q_values
         # Critic update
         self.critic.zero_grad()
 
@@ -101,7 +101,7 @@ class DDPG(object):
         l2_coef = torch.tensor(self.l2_critic).cuda()
         l2_reg = torch.tensor(0.).cuda()
         for name,param in self.critic.named_parameters():
-            if 'LN' not in name:
+            if ('LN' not in name ) and 'bias' not in name :
                 l2_reg += torch.norm(param)
         value_loss += l2_coef*l2_reg
         value_loss.backward()
@@ -125,9 +125,14 @@ class DDPG(object):
                 target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
 
         return value_loss.item(),policy_loss.item()
-        
+    
+    def update_num_pseudo_batches(self):
+        if isinstance(self.actor_optim,SGLD):
+            self.actor_optim.param_groups[0]['num_pseudo_batches'] = self.nb_entries
+        if isinstance(self.critic_optim,SGLD):
+            self.critic_optim.param_groups[0]['num_pseudo_batches'] = self.nb_entries
+            
 
-    #TODO SGLD??
     def apply_lr_decay(self):
         if self.lr_decay > 0:
             self.lr_coef = self.lr_decay*self.lr_coef/(self.lr_coef+self.lr_decay)
