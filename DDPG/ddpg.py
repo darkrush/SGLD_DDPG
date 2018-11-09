@@ -13,7 +13,8 @@ from sgld import SGLD
 class DDPG(object):
     def __init__(self, actor_lr, critic_lr, lr_decay,
                  l2_critic, batch_size, discount, tau,
-                 action_noise, noise_decay, 
+                 action_noise, noise_decay,
+                 parameter_noise,
                  SGLD_mode, num_pseudo_batches, 
                  pool_mode, pool_size, with_cuda):
         self.actor_lr = actor_lr
@@ -28,21 +29,25 @@ class DDPG(object):
         
         self.action_noise = action_noise
         self.noise_decay = noise_decay
-        
+        self.parameter_noise = parameter_noise
         self.SGLD_mode = SGLD_mode
         self.num_pseudo_batches = num_pseudo_batches
+        
+        exploration_method = (self.action_noise is not None) + (self.parameter_noise is not None) + (self.SGLD_mode is not 0)
         
         #pool_mode 0: no model pool, 1: actor only, 2: critic only, 3: both A&C
         self.pool_mode = pool_mode
         self.pool_size = pool_size
-        
+
         self.with_cuda = with_cuda
         
     def setup(self, actor, critic, memory):
         self.actor         = copy.deepcopy(actor)
+        self.noise_actor   = copy.deepcopy(actor)
         self.actor_target  = copy.deepcopy(actor)
         self.critic        = copy.deepcopy(critic)
         self.critic_target = copy.deepcopy(critic)
+        
         if self.with_cuda:
             self.actor.cuda()
             self.actor_target.cuda()
@@ -136,14 +141,29 @@ class DDPG(object):
     def apply_noise_decay(self):
         if self.noise_decay > 0:
             self.noise_coef = self.noise_decay*self.noise_coef/(self.noise_coef+self.noise_decay)
-    
+            
+    def adapt_param_noise(self):
+        assert  self.parameter_noise is not None
+        
+        for target_param, param in zip(self.noise_actor.parameters(), self.actor.parameters()):
+            target_param.data.copy_(param.data + torch.normal(mean=torch.zeros_like(param),std=torch.full_like(param,self.parameter_noise.current_stddev)))
+        
+        batch = self.memory.sample(self.batch_size)
+        tensor_obs0 = batch['obs0']
+        with torch.no_grad:
+            distance = torch.mean(torch.sqrt(torch.sum((self.actor(tensor_obs0)- self.noise_actor(tensor_obs0))**2,1)))
+        self.parameter_noise.adapt(distance)
+        
         
     def select_action(self, s_t, if_noise = True):
         s_t = torch.tensor(s_t,dtype = torch.float32,requires_grad = False)
         if self.with_cuda:
             s_t = s_t.cuda()
         with torch.no_grad():
-            action = self.actor(s_t).cpu().numpy().squeeze(0)
+            if if_noise and ( self.parameter_noise is not None):
+                action = self.noise_actor(s_t).cpu().numpy().squeeze(0)
+            else:
+                action = self.actor(s_t).cpu().numpy().squeeze(0)
         if if_noise & (self.action_noise is not None):
             action += max(self.noise_coef, 0)*self.action_noise()
         action = np.clip(action, -1., 1.)

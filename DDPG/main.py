@@ -38,7 +38,7 @@ if __name__ == "__main__":
     parser.add_argument('--actor-lr', default=0.0001, type=float, help='actor net learning rate')
     parser.add_argument('--critic-lr', default=0.001, type=float, help='critic net learning rate')
     parser.add_argument('--lr-decay', default=0, type=float, help='critic lr decay')
-    parser.add_argument('--l2-critic', default=0.0001, type=float, help='critic l2 regularization')
+    parser.add_argument('--l2-critic', default=0.01, type=float, help='critic l2 regularization')
     parser.add_argument('--batch-size', default=128, type=int, help='minibatch size')
     parser.add_argument('--discount', default=0.99, type=float, help='reward discout')
     parser.add_argument('--tau', default=0.001, type=float, help='moving average for target network')
@@ -106,6 +106,7 @@ if __name__ == "__main__":
     agent = DDPG(actor_lr = args.actor_lr, critic_lr = args.critic_lr, lr_decay = args.lr_decay,
                  l2_critic = args.l2_critic, batch_size = args.batch_size, discount = args.discount, tau = args.tau,
                  action_noise = action_noise, noise_decay = args.noise_decay, 
+                 parameter_noise = None,
                  SGLD_mode = args.SGLD_mode, num_pseudo_batches = args.num_pseudo_batches, 
                  pool_mode = args.pool_mode, pool_size = args.pool_size, with_cuda = args.with_cuda)
     agent.setup(actor, critic, memory)
