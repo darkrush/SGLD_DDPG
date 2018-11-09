@@ -80,6 +80,7 @@ class DDPG_trainer(object):
                 self.agent.update_num_pseudo_batches()
                 cl_list = []
                 al_list = []
+                self.agent.adapt_param_noise()
                 for t_train in range(self.nb_train_steps):
                     cl,al = self.agent.update()
                     cl_list.append(cl)

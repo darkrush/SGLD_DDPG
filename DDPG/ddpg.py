@@ -50,6 +50,7 @@ class DDPG(object):
         
         if self.with_cuda:
             self.actor.cuda()
+            self.noise_actor.cuda()
             self.actor_target.cuda()
             self.critic.cuda()
             self.critic_target.cuda()
@@ -150,7 +151,7 @@ class DDPG(object):
         
         batch = self.memory.sample(self.batch_size)
         tensor_obs0 = batch['obs0']
-        with torch.no_grad:
+        with torch.no_grad():
             distance = torch.mean(torch.sqrt(torch.sum((self.actor(tensor_obs0)- self.noise_actor(tensor_obs0))**2,1)))
         self.parameter_noise.adapt(distance)
         
@@ -161,6 +162,7 @@ class DDPG(object):
             s_t = s_t.cuda()
         with torch.no_grad():
             if if_noise and ( self.parameter_noise is not None):
+            
                 action = self.noise_actor(s_t).cpu().numpy().squeeze(0)
             else:
                 action = self.actor(s_t).cpu().numpy().squeeze(0)

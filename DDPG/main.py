@@ -44,6 +44,8 @@ if __name__ == "__main__":
     parser.add_argument('--tau', default=0.001, type=float, help='moving average for target network')
     parser.add_argument('--action-noise', dest='action_noise', action='store_true',help='enable action space noise')
     parser.set_defaults(action_noise=False)
+    parser.add_argument('--parameter-noise', dest='parameter_noise', action='store_true',help='enable parameter space noise')
+    parser.set_defaults(parameter_noise=False)
     parser.add_argument('--stddev', default=0.2, type=float, help='action noise stddev')
     parser.add_argument('--noise-decay', default=0, type=float, help='action noise decay')
     parser.add_argument('--SGLD-mode', default=0, type=int, help='SGLD mode, 0: no SGLD, 1: actor sgld only, 2: critic sgld only, 3: both actor & critic')
@@ -97,7 +99,9 @@ if __name__ == "__main__":
     action_noise = None
     if args.action_noise:
         action_noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(nb_actions), sigma=float(args.stddev) * np.ones(nb_actions))
-
+    parameter_noise = None
+    if args.parameter_noise:
+        parameter_noise = AdaptiveParamNoiseSpec( initial_stddev=0.1, desired_action_stddev=0.1, adoption_coefficient=1.01)
     
     actor  = Actor (nb_states, nb_actions, layer_norm = True)
     critic = Critic(nb_states, nb_actions, layer_norm = True)
@@ -106,7 +110,7 @@ if __name__ == "__main__":
     agent = DDPG(actor_lr = args.actor_lr, critic_lr = args.critic_lr, lr_decay = args.lr_decay,
                  l2_critic = args.l2_critic, batch_size = args.batch_size, discount = args.discount, tau = args.tau,
                  action_noise = action_noise, noise_decay = args.noise_decay, 
-                 parameter_noise = None,
+                 parameter_noise = parameter_noise,
                  SGLD_mode = args.SGLD_mode, num_pseudo_batches = args.num_pseudo_batches, 
                  pool_mode = args.pool_mode, pool_size = args.pool_size, with_cuda = args.with_cuda)
     agent.setup(actor, critic, memory)
