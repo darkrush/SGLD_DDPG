@@ -11,7 +11,7 @@ def fanin_init(size, fanin=None):
     return torch.Tensor(size).uniform_(-v, v)
 
 class Actor(nn.Module):
-    def __init__(self, nb_states, nb_actions, hidden1=400, hidden2=300, init_w=3e-3, layer_norm = False):
+    def __init__(self, nb_states, nb_actions, hidden1=64, hidden2=64, init_w=3e-3, layer_norm = False):
         super(Actor, self).__init__()
         self.layer_norm = layer_norm
         self.fc1 = nn.Linear(nb_states, hidden1)
@@ -45,7 +45,7 @@ class Actor(nn.Module):
         return out
 
 class Critic(nn.Module):
-    def __init__(self, nb_states, nb_actions, hidden1=400, hidden2=300, init_w=3e-3, layer_norm = False):
+    def __init__(self, nb_states, nb_actions, hidden1=64, hidden2=64, init_w=3e-3, layer_norm = False):
         super(Critic, self).__init__()
         self.layer_norm = layer_norm
         self.fc1 = nn.Linear(nb_states, hidden1)

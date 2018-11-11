@@ -43,17 +43,24 @@ class DDPG(object):
         
     def setup(self, actor, critic, memory):
         self.actor         = copy.deepcopy(actor)
-        self.noise_actor   = copy.deepcopy(actor)
         self.actor_target  = copy.deepcopy(actor)
+        self.noise_actor = None
+        self.measure_actor = None
+        if self.SGLD_mode is not 0:
+            self.noise_actor   = copy.deepcopy(actor)
+        if self.parameter_noise is not None:
+            self.noise_actor   = copy.deepcopy(actor)
+            self.measure_actor = copy.deepcopy(actor)
+            
         self.critic        = copy.deepcopy(critic)
         self.critic_target = copy.deepcopy(critic)
         
         if self.with_cuda:
-            self.actor.cuda()
-            self.noise_actor.cuda()
-            self.actor_target.cuda()
-            self.critic.cuda()
-            self.critic_target.cuda()
+            for net in (self.actor, self.actor_target, self.noise_actor, self.measure_actor, self.critic, self.critic_target):
+                if net is not None:
+                    net.cuda()
+                    
+            
         if (self.SGLD_mode == 1)or(self.SGLD_mode == 3):
             self.actor_optim  = SGLD(self.actor.parameters(),
                                      lr=self.actor_lr,
@@ -81,6 +88,16 @@ class DDPG(object):
     def reset_noise(self):
         if self.action_noise is not None:
             self.action_noise.reset()
+        if self.parameter_noise is not None:
+            for target_param, param in zip(self.noise_actor.parameters(), self.actor.named_parameters()):
+                name, param = param
+                if 'LN' not in name:
+                    target_param.data.copy_(param.data + torch.normal(mean=torch.zeros_like(param),std=torch.full_like(param,self.parameter_noise.current_stddev)))
+                else:
+                    target_param.data.copy_(param.data)
+        if self.SGLD_mode is not 0:
+            self.noise_actor.load_state_dict(copy.deepcopy(self.actor.state_dict()))
+            
             
     def store_transition(self, s_t, a_t, r_t, s_t1, done_t):
         self.memory.append(s_t, a_t, r_t, s_t1, done_t)
@@ -144,15 +161,20 @@ class DDPG(object):
             self.noise_coef = self.noise_decay*self.noise_coef/(self.noise_coef+self.noise_decay)
             
     def adapt_param_noise(self):
-        assert  self.parameter_noise is not None
+        if self.parameter_noise is None:
+            return
         
-        for target_param, param in zip(self.noise_actor.parameters(), self.actor.parameters()):
-            target_param.data.copy_(param.data + torch.normal(mean=torch.zeros_like(param),std=torch.full_like(param,self.parameter_noise.current_stddev)))
+        for target_param, param in zip(self.measure_actor.parameters(), self.actor.named_parameters()):
+            name, param = param
+            if 'LN' not in name:
+                target_param.data.copy_(param.data + torch.normal(mean=torch.zeros_like(param),std=torch.full_like(param,self.parameter_noise.current_stddev)))
+            else:
+                target_param.data.copy_(param.data)
         
         batch = self.memory.sample(self.batch_size)
         tensor_obs0 = batch['obs0']
         with torch.no_grad():
-            distance = torch.mean(torch.sqrt(torch.sum((self.actor(tensor_obs0)- self.noise_actor(tensor_obs0))**2,1)))
+            distance = torch.mean(torch.sqrt(torch.sum((self.actor(tensor_obs0)- self.measure_actor(tensor_obs0))**2,1)))
         self.parameter_noise.adapt(distance)
         
         
@@ -161,11 +183,13 @@ class DDPG(object):
         if self.with_cuda:
             s_t = s_t.cuda()
         with torch.no_grad():
-            if if_noise and ( self.parameter_noise is not None):
-            
-                action = self.noise_actor(s_t).cpu().numpy().squeeze(0)
-            else:
+            if not if_noise :
                 action = self.actor(s_t).cpu().numpy().squeeze(0)
+            else:
+                if (self.parameter_noise is not None) or (self.SGLD_mode is not 0):
+                    action = self.noise_actor(s_t).cpu().numpy().squeeze(0)
+                else:
+                    action = self.actor(s_t).cpu().numpy().squeeze(0)
         if if_noise & (self.action_noise is not None):
             action += max(self.noise_coef, 0)*self.action_noise()
         action = np.clip(action, -1., 1.)
