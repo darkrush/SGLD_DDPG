@@ -17,6 +17,7 @@ class SGLD(Optimizer):
                  num_pseudo_batches=1,
                  num_burn_in_steps=3000,
                  diagonal_bias=1e-8,
+                 noise_switch = True,
                  weight_decay = 0.0) -> None:
         """ Set up a SGLD Optimizer.
 
@@ -58,6 +59,7 @@ class SGLD(Optimizer):
             num_pseudo_batches=num_pseudo_batches,
             num_burn_in_steps=num_burn_in_steps,
             diagonal_bias=1e-8,
+            noise_switch = noise_switch,
             weight_decay = weight_decay
         )
         super().__init__(params, defaults)
@@ -70,6 +72,7 @@ class SGLD(Optimizer):
 
         for group in self.param_groups:
             lr = group["lr"]
+            noise_switch = group['noise_switch']
             weight_decay = group['weight_decay']
             diagonal_bias = group["diagonal_bias"]
             num_pseudo_batches = group["num_pseudo_batches"]
@@ -111,10 +114,10 @@ class SGLD(Optimizer):
                 
                 scaled_grad = (
                     0.5 * lr * preconditioner * gradient +
-                    0.5 * lr / num_pseudo_batches * preconditioner * weight_decay_gradient +
-                    sigma * torch.sqrt(lr*preconditioner/num_pseudo_batches) * torch.normal(mean=torch.zeros_like(gradient),std=torch.ones_like(gradient))
-                )
-                
+                    0.5 * lr / num_pseudo_batches * preconditioner * weight_decay_gradient)
+                    
+                if noise_switch :
+                    scaled_grad += sigma * torch.sqrt(lr*preconditioner/num_pseudo_batches) * torch.normal(mean=torch.zeros_like(gradient),std=torch.ones_like(gradient))
                 
                 parameter.data.add_(- scaled_grad)
 

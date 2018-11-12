@@ -68,18 +68,22 @@ class DDPG(object):
                                      num_burn_in_steps = 1000)
         else :
             self.actor_optim  = Adam(self.actor.parameters(), lr=self.actor_lr)
-            
+        
         if (self.SGLD_mode == 2)or(self.SGLD_mode == 3):
-            self.critic_optim  = SGLD([{'params': [param for name,param in self.critic.named_parameters() if 'LN' not in name]},
-                                       {'params': [param for name,param in self.critic.named_parameters() if 'LN' in name],  'weight_decay': 0}],
-                                      lr=self.critic_lr,
+            p_groups = [{'params': [param,],
+                         'noise_switch': True if ('LN' not in name) else False,
+                         'weight_decay': self.l2_critic if ('weight' in name) and ('LN' not in name) else 0
+                        } for name,param in self.critic.named_parameters() ]
+            self.critic_optim  = SGLD(params = p_groups,
+                                      lr = self.critic_lr,
                                       num_pseudo_batches = self.num_pseudo_batches,
                                       num_burn_in_steps = 1000,
                                       weight_decay = self.l2_critic)
         else:
-            self.critic_optim  = Adam([{'params': [param for name,param in self.critic.named_parameters() if 'LN' not in name]},
-                                       {'params': [param for name,param in self.critic.named_parameters() if 'LN' in name], 'weight_decay': 0}],
-                                       lr=self.critic_lr, weight_decay = self.l2_critic)
+            p_groups = [{'params': [param,],
+                         'weight_decay': self.l2_critic if ('weight' in name) and ('LN' not in name) else 0
+                        } for name,param in self.critic.named_parameters() ]
+            self.critic_optim  = Adam(params = p_groups, lr=self.critic_lr, weight_decay = self.l2_critic)
         
         self.memory = memory
         
