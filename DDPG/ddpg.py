@@ -70,14 +70,16 @@ class DDPG(object):
             self.actor_optim  = Adam(self.actor.parameters(), lr=self.actor_lr)
             
         if (self.SGLD_mode == 2)or(self.SGLD_mode == 3):
-            #self.l2_critic*=self.num_pseudo_batches
-            self.critic_optim  = SGLD(self.critic.parameters(),
+            self.critic_optim  = SGLD([{'params': [param for name,param in self.critic.named_parameters() if 'LN' not in name]},
+                                       {'params': [param for name,param in self.critic.named_parameters() if 'LN' in name],  'weight_decay': 0}],
                                       lr=self.critic_lr,
                                       num_pseudo_batches = self.num_pseudo_batches,
                                       num_burn_in_steps = 1000,
                                       weight_decay = self.l2_critic)
         else:
-            self.critic_optim  = Adam(self.critic.parameters(), lr=self.critic_lr, weight_decay = self.l2_critic)
+            self.critic_optim  = Adam([{'params': [param for name,param in self.critic.named_parameters() if 'LN' not in name]},
+                                       {'params': [param for name,param in self.critic.named_parameters() if 'LN' in name], 'weight_decay': 0}],
+                                       lr=self.critic_lr, weight_decay = self.l2_critic)
         
         self.memory = memory
         
