@@ -34,6 +34,12 @@ if __name__ == "__main__":
     parser.add_argument('--max-episode-length', default=1000, type=int, help='max steps in one episode')
     parser.add_argument('--nb-warmup-steps', default=100, type=int, help='time without training but only filling the replay memory')
     
+    #Model args
+    parser.add_argument('--hidden1', default=64, type=int, help='number of hidden1')
+    parser.add_argument('--hidden2', default=64, type=int, help='number of hidden2')
+    parser.add_argument('--not-LN', dest='layer_norm', action='store_false',help='model without LayerNorm')
+    parser.set_defaults(layer_norm=True)
+    
     #DDPG args
     parser.add_argument('--actor-lr', default=0.0001, type=float, help='actor net learning rate')
     parser.add_argument('--critic-lr', default=0.001, type=float, help='critic net learning rate')
@@ -49,12 +55,13 @@ if __name__ == "__main__":
     parser.add_argument('--stddev', default=0.2, type=float, help='action noise stddev')
     parser.add_argument('--noise-decay', default=0, type=float, help='action noise decay')
     parser.add_argument('--SGLD-mode', default=0, type=int, help='SGLD mode, 0: no SGLD, 1: actor sgld only, 2: critic sgld only, 3: both actor & critic')
-    parser.add_argument('--num-pseudo-batches', default=1e6, type=int, help='SGLD pseude batch number')
+    parser.add_argument('--num-pseudo-batches', default=0, type=int, help='SGLD pseude batch number')
     parser.add_argument('--pool-mode', default=0, type=int, help='agent pool mode, 0: no pool, 1: actor pool only, 2: critic pool only, 3: both actor & critic')
-    parser.add_argument('--pool-size', default=3, type=int, help='agent pool size, 0 means no agent pool')
+    parser.add_argument('--pool-size', default=0, type=int, help='agent pool size, 0 means no agent pool')
     parser.add_argument('--obs-norm', dest='obs_norm', action='store_true',help='enable observation normalization')
     parser.set_defaults(obs_norm=False)
     parser.add_argument('--buffer-size', default=1e6, type=int, help='memory buffer size')
+    
     #Other args
     parser.add_argument('--eval-visualize', dest='eval_visualize', action='store_true',help='enable render in evaluation progress')
     parser.set_defaults(eval_visualize=False)
@@ -103,8 +110,8 @@ if __name__ == "__main__":
     if args.parameter_noise:
         parameter_noise = AdaptiveParamNoiseSpec( initial_stddev=0.1, desired_action_stddev=0.1, adoption_coefficient=1.01)
     
-    actor  = Actor (nb_states, nb_actions, layer_norm = True)
-    critic = Critic(nb_states, nb_actions, layer_norm = True)
+    actor  = Actor (nb_states, nb_actions, hidden1 = args.hidden1, hidden2 = args.hidden2 , layer_norm = args.layer_norm)
+    critic = Critic(nb_states, nb_actions, hidden1 = args.hidden1, hidden2 = args.hidden2 , layer_norm = args.layer_norm)
     memory = Memory(int(args.buffer_size), (nb_actions,), (nb_states,), args.with_cuda)
     
     agent = DDPG(actor_lr = args.actor_lr, critic_lr = args.critic_lr, lr_decay = args.lr_decay,

@@ -31,9 +31,11 @@ class DDPG(object):
         self.noise_decay = noise_decay
         self.parameter_noise = parameter_noise
         self.SGLD_mode = SGLD_mode
+        self.adapt_pseudo_batches = num_pseudo_batches is 0
         self.num_pseudo_batches = num_pseudo_batches
         
         exploration_method = (self.action_noise is not None) + (self.parameter_noise is not None) + (self.SGLD_mode is not 0)
+        assert exploration_method <=1
         
         #pool_mode 0: no model pool, 1: actor only, 2: critic only, 3: both A&C
         self.pool_mode = pool_mode
@@ -42,8 +44,12 @@ class DDPG(object):
         self.with_cuda = with_cuda
         
     def setup(self, actor, critic, memory):
+        
         self.actor         = copy.deepcopy(actor)
         self.actor_target  = copy.deepcopy(actor)
+        self.critic        = copy.deepcopy(critic)
+        self.critic_target = copy.deepcopy(critic)
+        
         self.noise_actor = None
         self.measure_actor = None
         if self.SGLD_mode is not 0:
@@ -51,9 +57,6 @@ class DDPG(object):
         if self.parameter_noise is not None:
             self.noise_actor   = copy.deepcopy(actor)
             self.measure_actor = copy.deepcopy(actor)
-            
-        self.critic        = copy.deepcopy(critic)
-        self.critic_target = copy.deepcopy(critic)
         
         if self.with_cuda:
             for net in (self.actor, self.actor_target, self.noise_actor, self.measure_actor, self.critic, self.critic_target):
@@ -150,6 +153,8 @@ class DDPG(object):
         return value_loss.item(),policy_loss.item()
     
     def update_num_pseudo_batches(self):
+        if not self.adapt_pseudo_batches:
+            return
         if isinstance(self.actor_optim,SGLD):
             for group in self.actor_optim.param_groups:
                 group['num_pseudo_batches'] = self.memory.nb_entries
@@ -161,8 +166,10 @@ class DDPG(object):
     def apply_lr_decay(self):
         if self.lr_decay > 0:
             self.lr_coef = self.lr_decay*self.lr_coef/(self.lr_coef+self.lr_decay)
-            self.critic_optim.param_groups[0]['lr'] = self.critic_lr * self.lr_coef
-            self.actor_optim.param_groups[0]['lr'] = self.actor_lr * self.lr_coef
+            for group in self.actor_optim.param_groups:
+                group['lr'] = self.actor_lr * self.lr_coef
+            for group in self.critic_optim.param_groups:
+                group['lr'] = self.critic_lr * self.lr_coef
         
     def apply_noise_decay(self):
         if self.noise_decay > 0:
@@ -171,14 +178,12 @@ class DDPG(object):
     def adapt_param_noise(self):
         if self.parameter_noise is None:
             return
-        
         for target_param, param in zip(self.measure_actor.parameters(), self.actor.named_parameters()):
             name, param = param
             if 'LN' not in name:
                 target_param.data.copy_(param.data + torch.normal(mean=torch.zeros_like(param),std=torch.full_like(param,self.parameter_noise.current_stddev)))
             else:
                 target_param.data.copy_(param.data)
-        
         batch = self.memory.sample(self.batch_size)
         tensor_obs0 = batch['obs0']
         with torch.no_grad():
@@ -223,10 +228,8 @@ class DDPG(object):
         model_dict = {}
         if (self.pool_mode==1) or (self.pool_mode==3):
             model_dict['actor'] = copy.deepcopy(self.actor.state_dict())
-            #model_dict['actor_target'] = copy.deepcopy(self.actor_target.state_dict())
         if (self.pool_mode==2) or (self.pool_mode==3):
             model_dict['critic'] = copy.deepcopy(self.critic.state_dict())
-            #model_dict['critic_target'] = copy.deepcopy(self.critic_target.state_dict())
         self.agent_pool.model_append(model_dict)
 
     def pick_agent(self, id = None):
@@ -236,9 +239,5 @@ class DDPG(object):
         model_dict = self.agent_pool.get_model(id)
         if (self.pool_mode==1) or (self.pool_mode==3):
             self.actor.load_state_dict(model_dict['actor'])
-            #self.actor_target.load_state_dict(model_dict['actor_target'])
         if (self.pool_mode==2) or (self.pool_mode==3):
             self.critic.load_state_dict(model_dict['critic'])
-            #self.critic_target.load_state_dict(model_dict['critic_target'])
-
-    

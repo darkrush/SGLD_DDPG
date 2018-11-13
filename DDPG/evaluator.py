@@ -125,7 +125,7 @@ Singleton_evaluator = Evaluator()
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Eval DDPG')
-    parser.add_argument('--argfile-dir', default=None, type=str, help='result output dir')
+    parser.add_argument('--logdir', default=None, type=str, help='result output dir')
     parser.add_argument('--env', default=None, type=str, help='open-ai gym environment')
     parser.add_argument('--model-dir', default=None, type=str, help='actor for evaluation')
     parser.add_argument('--max-episode-length', default=1000, type=int, help='max step number for pisode')
@@ -134,8 +134,8 @@ if __name__ == "__main__":
     parser.set_defaults(visualize=False)
     
     args = parser.parse_args()
-    if args.argfile_dir is not None:
-        with open(args.argfile_dir,'rb') as f:
+    if args.logdir is not None:
+        with open(args.logdir,'rb') as f:
             exp_args = pickle.load(f)
             args.env = exp_args.env
             args.model_dir = exp_args.result_dir
