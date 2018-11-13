@@ -3,7 +3,7 @@ import copy
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.optim import Adam,SGD
+from torch.optim import Adam,SGD,RMSprop
 
 
 from model_pool import Model_pool
@@ -151,9 +151,11 @@ class DDPG(object):
     
     def update_num_pseudo_batches(self):
         if isinstance(self.actor_optim,SGLD):
-            self.actor_optim.param_groups[0]['num_pseudo_batches'] = self.memory.nb_entries
+            for group in self.actor_optim.param_groups:
+                group['num_pseudo_batches'] = self.memory.nb_entries
         if isinstance(self.critic_optim,SGLD):
-            self.critic_optim.param_groups[0]['num_pseudo_batches'] = self.memory.nb_entries
+            for group in self.critic_optim.param_groups:
+                group['num_pseudo_batches'] = self.memory.nb_entries
             
 
     def apply_lr_decay(self):
@@ -192,12 +194,13 @@ class DDPG(object):
             if not if_noise :
                 action = self.actor(s_t).cpu().numpy().squeeze(0)
             else:
-                if (self.parameter_noise is not None) or (self.SGLD_mode is not 0):
+                if (self.SGLD_mode is not 0):
+                    action = self.noise_actor(s_t).cpu().numpy().squeeze(0)
+                elif (self.parameter_noise is not None):
                     action = self.noise_actor(s_t).cpu().numpy().squeeze(0)
                 else:
                     action = self.actor(s_t).cpu().numpy().squeeze(0)
-        if if_noise & (self.action_noise is not None):
-            action += max(self.noise_coef, 0)*self.action_noise()
+                    action += max(self.noise_coef, 0)*self.action_noise()
         action = np.clip(action, -1., 1.)
         return action
         

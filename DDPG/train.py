@@ -20,6 +20,8 @@ class DDPG_trainer(object):
         self.reset()
         
     def reset(self):
+        self.last_episode_length = 0
+        self.current_episode_length = 0
         self.current_episode_reward = 0.
         self.last_episode_reward = 0.
         self.total_cycle = 0
@@ -34,6 +36,7 @@ class DDPG_trainer(object):
             #apply the action to environment and get next state, reawrd and other information
             obs, reward, done, info = self.env.step(action * self.action_scale + self.action_bias)
             self.current_episode_reward += reward
+            self.current_episode_length += 1
             obs = deepcopy(obs)
             
             #store the transition into agent's replay buffer and update last observation
@@ -45,7 +48,9 @@ class DDPG_trainer(object):
                 self.last_observation = deepcopy(self.env.reset())
                 self.agent.reset_noise()
                 self.last_episode_reward = self.current_episode_reward
+                self.last_episode_length = self.current_episode_length *0.1 + self.last_episode_length *0.9
                 self.current_episode_reward = 0.
+                self.current_episode_length = 0
                 
     def train(self):
         self.agent.append_agent()
@@ -63,6 +68,7 @@ class DDPG_trainer(object):
                     #apply the action to environment and get next state, reawrd and other information
                     obs, reward, done, info = self.env.step(action * self.action_scale + self.action_bias)
                     self.current_episode_reward += reward
+                    self.current_episode_length += 1
                     obs = deepcopy(obs)
                     
                     #store the transition into agent's replay buffer and update last observation
@@ -74,7 +80,9 @@ class DDPG_trainer(object):
                         self.last_observation = deepcopy(self.env.reset())
                         self.agent.reset_noise()
                         self.last_episode_reward = self.current_episode_reward
+                        self.last_episode_length = self.current_episode_length *0.1 + self.last_episode_length *0.9
                         self.current_episode_reward = 0.
+                        self.current_episode_length = 0
                 
                 #update agent for nb_train_steps times
                 self.agent.update_num_pseudo_batches()
@@ -90,6 +98,7 @@ class DDPG_trainer(object):
                 
                 
                 #trigger log events
+                self.logger.trigger_log('train_episode_length', self.last_episode_length,self.total_cycle)
                 self.logger.trigger_log('train_episode_reward', self.last_episode_reward,self.total_cycle)
                 self.logger.trigger_log('actor_loss_mean', al_mean, self.total_cycle)
                 self.logger.trigger_log('critic_loss_mean', cl_mean, self.total_cycle)
