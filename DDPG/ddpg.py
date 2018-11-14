@@ -203,9 +203,11 @@ class DDPG(object):
                     action = self.noise_actor(s_t).cpu().numpy().squeeze(0)
                 elif (self.parameter_noise is not None):
                     action = self.noise_actor(s_t).cpu().numpy().squeeze(0)
-                else:
+                elif (self.action_noise is not None):
                     action = self.actor(s_t).cpu().numpy().squeeze(0)
                     action += max(self.noise_coef, 0)*self.action_noise()
+                else:
+                    action = self.actor(s_t).cpu().numpy().squeeze(0)
         action = np.clip(action, -1., 1.)
         return action
         
