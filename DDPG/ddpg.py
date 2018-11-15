@@ -151,6 +151,63 @@ class DDPG(object):
                 target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
 
         return value_loss.item(),policy_loss.item()
+
+    def calc_critic(self,obs):
+        obs = torch.tensor(obs,dtype = torch.float32,requires_grad = False)
+        if self.with_cuda:
+            obs = obs.cuda()
+        with torch.no_grad():
+            q_values = self.critic([obs,self.actor(obs),])
+        return q_values.cpu().numpy()
+        
+        
+    def update_critic(self):
+        # Sample batch
+        batch = self.memory.sample(self.batch_size)
+        tensor_obs0 = batch['obs0']
+        tensor_obs1 = batch['obs1']
+
+        # Prepare for the target q batch
+        with torch.no_grad():
+            next_q_values = self.critic_target([
+                tensor_obs1,
+                self.actor_target(tensor_obs1),
+            ])
+        
+            target_q_batch = batch['rewards'] + self.discount*(1-batch['terminals1'])*next_q_values
+        # Critic update
+        self.critic.zero_grad()
+
+        q_batch = self.critic([tensor_obs0, batch['actions']])
+        value_loss = nn.functional.mse_loss(q_batch, target_q_batch)
+        value_loss.backward()
+        self.critic_optim.step()
+      
+        return value_loss.item()
+        
+    def update_actor(self):
+        # Sample batch
+        batch = self.memory.sample(self.batch_size)
+        tensor_obs0 = batch['obs0']
+        tensor_obs1 = batch['obs1']
+
+        # Actor update
+        self.actor.zero_grad()
+
+        policy_loss = -self.critic([
+            tensor_obs0,
+            self.actor(tensor_obs0)
+        ])
+        policy_loss = policy_loss.mean()
+        policy_loss.backward()
+        self.actor_optim.step()
+        
+        # Target update
+        for target,source in ((self.actor_target, self.actor),(self.critic_target, self.critic)):
+            for target_param, param in zip(target.parameters(), source.parameters()):
+                target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
+
+        return policy_loss.item()
     
     def update_num_pseudo_batches(self):
         if not self.adapt_pseudo_batches:
