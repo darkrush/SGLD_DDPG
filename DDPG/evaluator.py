@@ -16,10 +16,11 @@ class Evaluator(object):
         self.obs_norm = None
         self.visualize = False
         
-    def setup(self, env_name, logger, num_episodes = 10, max_episode_length=1000, model_dir = None,
+    def setup(self, env_name, logger, obs_norm = False, num_episodes = 10, max_episode_length=1000, model_dir = None,
               multi_process = True, visualize = False, rand_seed = -1):
         self.env_name = env_name
         self.logger = logger
+        self.if_obs_norm = obs_norm
         self.num_episodes = num_episodes
         self.max_episode_length = max_episode_length
         self.model_dir = model_dir
@@ -52,12 +53,17 @@ class Evaluator(object):
                 self.run_eval(item)
             
     def load_from_buffer(self, buffer):
-        self.actor = torch.load(buffer)
+        if self.if_obs_norm:
+            buffer, norm_buffer = buffer
+            self.obs_norm = torch.load(norm_buffer)
+        self.actor = torch.load(actor_buffer)
         
     def laod_from_file(self,model_dir = None):
         if model_dir is None:
             model_dir = self.model_dir
         assert model_dir is not None
+        if self.if_obs_norm:
+            self.obs_norm = torch.load(os.path.join(model_dir,'obs_norm.pkl'))
         self.actor = torch.load(os.path.join(model_dir,'actor.pkl'))
         
     def run_eval(self,total_cycle):
@@ -74,6 +80,8 @@ class Evaluator(object):
             done = False
             while not done:
                 obs = torch.tensor([observation],dtype = torch.float32,requires_grad = False).cuda()
+                if self.obs_norm is not None:
+                    obs = self.obs_norm(obs)
                 with torch.no_grad():
                     action = self.actor(obs).cpu().numpy().squeeze(0)
                 action = np.clip(action, -1., 1.)
@@ -130,6 +138,8 @@ if __name__ == "__main__":
     parser.add_argument('--model-dir', default=None, type=str, help='actor for evaluation')
     parser.add_argument('--max-episode-length', default=1000, type=int, help='max step number for pisode')
     parser.add_argument('--num-episodes', default=10, type=int, help='max step number for pisode')
+    parser.add_argument('--obs-norm', dest='obs_norm', action='store_true',help='enable observation normalization')
+    parser.set_defaults(obs_norm=False)
     parser.add_argument('--visualize', dest='visualize', action='store_true',help='enable render in evaluation progress')
     parser.set_defaults(visualize=False)
     
@@ -137,6 +147,7 @@ if __name__ == "__main__":
     if args.logdir is not None:
         with open(args.logdir,'rb') as f:
             exp_args = pickle.load(f)
+            args.obs_norm = exp_args.obs_norm
             args.env = exp_args.env
             args.model_dir = exp_args.result_dir
             
@@ -145,6 +156,7 @@ if __name__ == "__main__":
     
     Singleton_evaluator.setup(env_name = args.env,
                               logger = None,
+                              obs_norm = args.obs_norm,
                               num_episodes = 10,
                               max_episode_length=args.max_episode_length,
                               model_dir = args.model_dir,
