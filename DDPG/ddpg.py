@@ -152,12 +152,16 @@ class DDPG(object):
 
         return value_loss.item(),policy_loss.item()
 
-    def calc_critic(self,obs):
+    def calc_critic(self,obs, action = None):
+        if action is not None:
+            action = torch.tensor(action,dtype = torch.float32,requires_grad = False)
         obs = torch.tensor(obs,dtype = torch.float32,requires_grad = False)
         if self.with_cuda:
             obs = obs.cuda()
         with torch.no_grad():
-            q_values = self.critic([obs,self.actor(obs),])
+            if action is None :
+                action = self.actor(obs)
+            q_values = self.critic([obs,action,])
         return q_values.cpu().numpy()
         
         
