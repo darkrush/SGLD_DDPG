@@ -10,6 +10,7 @@ from model import Actor,Critic
 from memory import Memory
 from tracer import DDPG_tracer
 from ddpg import DDPG
+from obs_norm import Run_Normalizer
 from noise import *
 
 
@@ -59,7 +60,7 @@ if __name__ == "__main__":
     #Other args
     parser.add_argument('--eval-visualize', dest='eval_visualize', action='store_true',help='enable render in evaluation progress')
     parser.set_defaults(eval_visualize=False)
-    parser.add_argument('--rand_seed', default=199, type=int, help='random_seed')
+    parser.add_argument('--rand_seed', default=2, type=int, help='random_seed')
     parser.add_argument('--nocuda', dest='with_cuda', action='store_false',help='disable cuda')
     parser.set_defaults(with_cuda=True)
     parser.add_argument('--mp', dest='multi_process', action='store_true',help='enable multi process')
@@ -105,14 +106,17 @@ if __name__ == "__main__":
     actor  = Actor (nb_states, nb_actions, hidden1 = args.hidden1, hidden2 = args.hidden2 , layer_norm = args.layer_norm)
     critic = Critic(nb_states, nb_actions, hidden1 = args.hidden1, hidden2 = args.hidden2 , layer_norm = args.layer_norm)
     memory = Memory(int(args.buffer_size), (nb_actions,), (nb_states,), args.with_cuda)
-    
+    obs_norm = None
+    if args.obs_norm :
+        obs_norm = Run_Normalizer(size = (nb_states,))
+        
     agent = DDPG(actor_lr = args.actor_lr, critic_lr = args.critic_lr, lr_decay = args.lr_decay,
                  l2_critic = args.l2_critic, batch_size = args.batch_size, discount = args.discount, tau = args.tau,
                  action_noise = action_noise, noise_decay = args.noise_decay, 
                  parameter_noise = parameter_noise,
                  SGLD_mode = args.SGLD_mode, num_pseudo_batches = args.num_pseudo_batches, 
                  pool_mode = args.pool_mode, pool_size = args.pool_size, with_cuda = args.with_cuda)
-    agent.setup(actor, critic, memory)
+    agent.setup(actor, critic, memory, obs_norm)
     
     runner = DDPG_tracer( nb_rollout_steps = args.nb_rollout_steps, nb_train_steps = args.nb_train_steps, nb_state_step = 100)
     runner.setup(env = env, agent = agent)
