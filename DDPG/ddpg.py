@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam,SGD,RMSprop
 
-
+from obs_norm import Run_Normalizer
 from model_pool import Model_pool
 from memory import Memory
 from sgld import SGLD
@@ -43,7 +43,7 @@ class DDPG(object):
 
         self.with_cuda = with_cuda
         
-    def setup(self, actor, critic, memory):
+    def setup(self, actor, critic, memory, obs_norm = None ):
         
         self.actor         = copy.deepcopy(actor)
         self.actor_target  = copy.deepcopy(actor)
@@ -58,8 +58,10 @@ class DDPG(object):
             self.noise_actor   = copy.deepcopy(actor)
             self.measure_actor = copy.deepcopy(actor)
         
+        self.obs_norm = obs_norm
+        
         if self.with_cuda:
-            for net in (self.actor, self.actor_target, self.noise_actor, self.measure_actor, self.critic, self.critic_target):
+            for net in (self.actor, self.actor_target, self.noise_actor, self.measure_actor, self.critic, self.critic_target, self.obs_norm):
                 if net is not None:
                     net.cuda()
                     
@@ -109,6 +111,11 @@ class DDPG(object):
             
             
     def store_transition(self, s_t, a_t, r_t, s_t1, done_t):
+        s_t = torch.tensor(s_t,dtype = torch.float32,requires_grad = False)
+        if self.with_cuda:
+            s_t = s_t.cuda()
+        if self.obs_norm is not None:
+            self.obs_norm.observe(s_t)
         self.memory.append(s_t, a_t, r_t, s_t1, done_t)
         
     def update(self):
@@ -116,7 +123,9 @@ class DDPG(object):
         batch = self.memory.sample(self.batch_size)
         tensor_obs0 = batch['obs0']
         tensor_obs1 = batch['obs1']
-
+        if self.obs_norm is not None:
+            tensor_obs0 = self.obs_norm(tensor_obs0)
+            tensor_obs1 = self.obs_norm(tensor_obs1)
         # Prepare for the target q batch
         with torch.no_grad():
             next_q_values = self.critic_target([
@@ -195,6 +204,8 @@ class DDPG(object):
         s_t = torch.tensor(s_t,dtype = torch.float32,requires_grad = False)
         if self.with_cuda:
             s_t = s_t.cuda()
+        if self.obs_norm is not None:
+            s_t = self.obs_norm(s_t)
         with torch.no_grad():
             if not if_noise :
                 action = self.actor(s_t).cpu().numpy().squeeze(0)
@@ -214,15 +225,23 @@ class DDPG(object):
     def load_weights(self, output): 
         self.actor  = torch.load('{}/actor.pkl'.format(output) )
         self.critic = torch.load('{}/critic.pkl'.format(output))
+        if self.obs_norm is not None:
+            self.obs_norm  = torch.load('{}/obs_norm.pkl'.format(output) )
             
     def save_model(self, output):
         torch.save(self.actor ,'{}/actor.pkl'.format(output) )
         torch.save(self.critic,'{}/critic.pkl'.format(output))
-        
+        if self.obs_norm is not None:
+            torch.save(self.obs_norm ,'{}/obs_norm.pkl'.format(output) )
+            
     def get_actor_buffer(self):
-        buffer = io.BytesIO()
-        torch.save(self.actor, buffer)
-        return buffer
+        actor_buffer = io.BytesIO()
+        torch.save(self.actor, actor_buffer)
+        obs_norm_buffer = None
+        if self.obs_norm is not None:
+            obs_norm_buffer = io.BytesIO()
+            torch.save(self.obs_norm, obs_norm_buffer)
+        return (actor_buffer,obs_norm_buffer)
         
     def append_agent(self):
         if self.pool_mode is 0:
@@ -234,6 +253,15 @@ class DDPG(object):
             model_dict['critic'] = copy.deepcopy(self.critic.state_dict())
         self.agent_pool.model_append(model_dict)
 
+    def pick_agent(self, id = None):
+        # id: -1:last agent; None: random agent; 0~pool_size-1: specific agent
+        if self.pool_mode is 0:
+            return
+        model_dict = self.agent_pool.get_model(id)
+        if (self.pool_mode==1) or (self.pool_mode==3):
+            self.actor.load_state_dict(model_dict['actor'])
+        if (self.pool_mode==2) or (self.pool_mode==3):
+            self.critic.load_state_dict(model_dict['critic'])
     def pick_agent(self, id = None):
         # id: -1:last agent; None: random agent; 0~pool_size-1: specific agent
         if self.pool_mode is 0:

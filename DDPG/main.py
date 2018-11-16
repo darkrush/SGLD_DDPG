@@ -12,6 +12,7 @@ from model import Actor,Critic
 from memory import Memory
 from train import DDPG_trainer
 from ddpg import DDPG
+from obs_norm import Run_Normalizer
 from noise import *
 
 
@@ -88,7 +89,7 @@ if __name__ == "__main__":
     os.makedirs(args.result_dir, exist_ok=True)
         
     Singleton_logger.setup(args.result_dir,multi_process = args.multi_process)
-    Singleton_evaluator.setup(args.env, logger = Singleton_logger, num_episodes = 10, max_episode_length=args.max_episode_length, model_dir = args.result_dir, multi_process = args.multi_process, visualize = args.eval_visualize, rand_seed = args.rand_seed)
+    Singleton_evaluator.setup(args.env, logger = Singleton_logger, obs_norm = args.obs_norm, num_episodes = 10, max_episode_length=args.max_episode_length, model_dir = args.result_dir, multi_process = args.multi_process, visualize = args.eval_visualize, rand_seed = args.rand_seed)
 
     
     with open(os.path.join(args.result_dir,'args.pkl'),'wb') as f:
@@ -113,14 +114,17 @@ if __name__ == "__main__":
     actor  = Actor (nb_states, nb_actions, hidden1 = args.hidden1, hidden2 = args.hidden2 , layer_norm = args.layer_norm)
     critic = Critic(nb_states, nb_actions, hidden1 = args.hidden1, hidden2 = args.hidden2 , layer_norm = args.layer_norm)
     memory = Memory(int(args.buffer_size), (nb_actions,), (nb_states,), args.with_cuda)
-    
+    obs_norm = None
+    if args.obs_norm :
+        obs_norm = Run_Normalizer(size = (nb_states,))
+        
     agent = DDPG(actor_lr = args.actor_lr, critic_lr = args.critic_lr, lr_decay = args.lr_decay,
                  l2_critic = args.l2_critic, batch_size = args.batch_size, discount = args.discount, tau = args.tau,
                  action_noise = action_noise, noise_decay = args.noise_decay, 
                  parameter_noise = parameter_noise,
                  SGLD_mode = args.SGLD_mode, num_pseudo_batches = args.num_pseudo_batches, 
                  pool_mode = args.pool_mode, pool_size = args.pool_size, with_cuda = args.with_cuda)
-    agent.setup(actor, critic, memory)
+    agent.setup(actor, critic, memory, obs_norm)
     
     trainer = DDPG_trainer(nb_epoch = args.nb_epoch, nb_cycles_per_epoch = args.nb_cycles_per_epoch,
                          nb_rollout_steps = args.nb_rollout_steps, nb_train_steps = args.nb_train_steps,
