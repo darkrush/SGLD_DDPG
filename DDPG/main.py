@@ -56,6 +56,8 @@ if __name__ == "__main__":
     parser.add_argument('--stddev', default=0.2, type=float, help='action noise stddev')
     parser.add_argument('--noise-decay', default=0, type=float, help='action noise decay')
     parser.add_argument('--SGLD-mode', default=0, type=int, help='SGLD mode, 0: no SGLD, 1: actor sgld only, 2: critic sgld only, 3: both actor & critic')
+    parser.add_argument('--SGLD-noise', dest='SGLD_noise', action='store_true',help='enable SGLD noise')
+    parser.set_defaults(SGLD_noise=False)
     parser.add_argument('--num-pseudo-batches', default=0, type=int, help='SGLD pseude batch number')
     parser.add_argument('--pool-mode', default=0, type=int, help='agent pool mode, 0: no pool, 1: actor pool only, 2: critic pool only, 3: both actor & critic')
     parser.add_argument('--pool-size', default=0, type=int, help='agent pool size, 0 means no agent pool')
@@ -121,7 +123,7 @@ if __name__ == "__main__":
     agent = DDPG(actor_lr = args.actor_lr, critic_lr = args.critic_lr, lr_decay = args.lr_decay,
                  l2_critic = args.l2_critic, batch_size = args.batch_size, discount = args.discount, tau = args.tau,
                  action_noise = action_noise, noise_decay = args.noise_decay, 
-                 parameter_noise = parameter_noise,
+                 parameter_noise = parameter_noise, SGLD_noise = args.SGLD_noise,
                  SGLD_mode = args.SGLD_mode, num_pseudo_batches = args.num_pseudo_batches, 
                  pool_mode = args.pool_mode, pool_size = args.pool_size, with_cuda = args.with_cuda)
     agent.setup(actor, critic, memory, obs_norm)

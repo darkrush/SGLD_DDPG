@@ -14,7 +14,7 @@ class DDPG(object):
     def __init__(self, actor_lr, critic_lr, lr_decay,
                  l2_critic, batch_size, discount, tau,
                  action_noise, noise_decay,
-                 parameter_noise,
+                 parameter_noise, SGLD_noise,
                  SGLD_mode, num_pseudo_batches, 
                  pool_mode, pool_size, with_cuda):
         self.actor_lr = actor_lr
@@ -27,6 +27,7 @@ class DDPG(object):
         self.lr_coef = 1
         self.noise_coef = 1
         
+        self.SGLD_noise = SGLD_noise
         self.action_noise = action_noise
         self.noise_decay = noise_decay
         self.parameter_noise = parameter_noise
@@ -76,7 +77,7 @@ class DDPG(object):
         
         if (self.SGLD_mode == 2)or(self.SGLD_mode == 3):
             p_groups = [{'params': [param,],
-                         'noise_switch': True if ('LN' not in name) else False,
+                         'noise_switch': self.SGLD_noise and (True if ('LN' not in name) else False),
                          'weight_decay': self.l2_critic if ('weight' in name) and ('LN' not in name) else 0
                         } for name,param in self.critic.named_parameters() ]
             self.critic_optim  = SGLD(params = p_groups,
