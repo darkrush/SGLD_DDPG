@@ -1,4 +1,5 @@
 import torch
+import math
 from torch.optim import Optimizer
 
 
@@ -97,28 +98,19 @@ class SGLD(Optimizer):
                 momentum = state["momentum"]
 
                 #  Momentum update {{{ #
-                
-                momentum.add_((1.0 - precondition_decay_rate) * ((gradient ** 2) - momentum))
+                momentum.mul_(precondition_decay_rate).addcmul_(1.0 - precondition_decay_rate,gradient,gradient)
                 #  }}} Momentum update #
 
-                if state["iteration"] > num_burn_in_steps:
-                    sigma = torch.ones_like(parameter)
-                else:
-                    sigma = torch.zeros_like(parameter)
-
-                preconditioner = (
-                    1. / torch.sqrt(momentum + diagonal_bias)
-                )
+                inv_preconditioner = torch.sqrt(momentum + diagonal_bias)
                 
-                weight_decay_gradient = torch.zeros_like(parameter).add_(weight_decay, parameter.data)
+                if weight_decay > 0:
+                    gradient.add_(weight_decay/ num_pseudo_batches,parameter.data)
                 
-                scaled_grad = (
-                    0.5 * lr * preconditioner * gradient +
-                    0.5 * lr / num_pseudo_batches * preconditioner * weight_decay_gradient)
+                parameter.data.addcdiv_(-0.5 * lr, gradient,inv_preconditioner)
+               
                     
-                if noise_switch :
-                    scaled_grad += sigma * torch.sqrt(lr*preconditioner/num_pseudo_batches) * torch.normal(mean=torch.zeros_like(gradient),std=torch.ones_like(gradient))
-                
-                parameter.data.add_(- scaled_grad)
+                if noise_switch and (state["iteration"] > num_burn_in_steps) :
+                    sgld_noise = torch.normal(mean=0.0, std=inv_preconditioner.rsqrt())
+                    parameter.data.add_(-math.sqrt(lr/num_pseudo_batches),sgld_noise)
 
         return loss
