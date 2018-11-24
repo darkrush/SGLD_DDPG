@@ -111,7 +111,7 @@ if __name__ == "__main__":
         action_noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(nb_actions), sigma=float(args.stddev) * np.ones(nb_actions))
     parameter_noise = None
     if args.parameter_noise:
-        parameter_noise = AdaptiveParamNoiseSpec( initial_stddev=0.1, desired_action_stddev=0.1, adoption_coefficient=1.01)
+        parameter_noise = AdaptiveParamNoiseSpec( initial_stddev=args.stddev, desired_action_stddev=args.stddev, adoption_coefficient=1.01)
     
     actor  = Actor (nb_states, nb_actions, hidden1 = args.hidden1, hidden2 = args.hidden2 , layer_norm = args.layer_norm)
     critic = Critic(nb_states, nb_actions, hidden1 = args.hidden1, hidden2 = args.hidden2 , layer_norm = args.layer_norm)

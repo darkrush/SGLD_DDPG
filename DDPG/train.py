@@ -2,12 +2,13 @@ import numpy as np
 from copy import deepcopy
 
 class DDPG_trainer(object):
-    def __init__(self, nb_epoch, nb_cycles_per_epoch, nb_rollout_steps, nb_train_steps, nb_warmup_steps):
+    def __init__(self, nb_epoch, nb_cycles_per_epoch, nb_rollout_steps, nb_train_steps, nb_warmup_steps, train_mode = 0):
         self.nb_epoch = nb_epoch
         self.nb_cycles_per_epoch = nb_cycles_per_epoch
         self.nb_rollout_steps = nb_rollout_steps
         self.nb_train_steps = nb_train_steps
         self.nb_warmup_steps = nb_warmup_steps
+        self.train_mode = train_mode
         
     def setup(self, env, agent, evaluator, logger):
         self.env = env
@@ -86,17 +87,16 @@ class DDPG_trainer(object):
                 
                 #update agent for nb_train_steps times
                 self.agent.update_num_pseudo_batches()
-                cl_list = []
-                al_list = []
-                self.agent.adapt_param_noise()
-                for t_train in range(self.nb_train_steps):
-                    cl,al = self.agent.update()
-                    cl_list.append(cl)
-                    al_list.append(al)
-                al_mean = np.mean(al_list)
-                cl_mean = np.mean(cl_list)
-                
-                
+                if train_mode == 0:
+                    cl_list = []
+                    al_list = []
+                    self.agent.adapt_param_noise()
+                    for t_train in range(self.nb_train_steps):
+                        cl,al = self.agent.update()
+                        cl_list.append(cl)
+                        al_list.append(al)
+                    al_mean = np.mean(al_list)
+                    cl_mean = np.mean(cl_list)
                 #trigger log events
                 self.logger.trigger_log('train_episode_length', self.last_episode_length,self.total_cycle)
                 self.logger.trigger_log('train_episode_reward', self.last_episode_reward,self.total_cycle)
