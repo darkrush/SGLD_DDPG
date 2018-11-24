@@ -87,7 +87,7 @@ class DDPG_trainer(object):
                 
                 #update agent for nb_train_steps times
                 self.agent.update_num_pseudo_batches()
-                if train_mode == 0:
+                if self.train_mode == 0:
                     cl_list = []
                     al_list = []
                     self.agent.adapt_param_noise()
