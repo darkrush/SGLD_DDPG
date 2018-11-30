@@ -2,7 +2,7 @@ import numpy as np
 from copy import deepcopy
 
 class DDPG_trainer(object):
-    def __init__(self, nb_epoch, nb_cycles_per_epoch, nb_rollout_steps, nb_train_steps, nb_warmup_steps, train_mode = 0):
+    def __init__(self, nb_epoch, nb_cycles_per_epoch, nb_rollout_steps, nb_train_steps, nb_warmup_steps, train_mode = 1):
         self.nb_epoch = nb_epoch
         self.nb_cycles_per_epoch = nb_cycles_per_epoch
         self.nb_rollout_steps = nb_rollout_steps
@@ -100,6 +100,20 @@ class DDPG_trainer(object):
                         
                         cl_list.append(cl)
                         al_list.append(al)
+                    al_mean = np.mean(al_list)
+                    cl_mean = np.mean(cl_list)
+                elif self.train_mode == 1:
+                    cl_list = []
+                    al_list = []
+                    self.agent.adapt_param_noise()
+                    for t_train in range(self.nb_train_steps):
+                        cl = self.agent.update_critic()
+                        cl_list.append(cl)
+                    for t_train in range(self.nb_train_steps):
+                        al = self.agent.update_actor()
+                        al_list.append(al)
+                    self.agent.update_actor_target(soft_update = False )
+                    self.agent.update_critic_target(soft_update = False)
                     al_mean = np.mean(al_list)
                     cl_mean = np.mean(cl_list)
                 #trigger log events

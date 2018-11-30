@@ -33,8 +33,9 @@ if __name__ == "__main__":
     parser.add_argument('--nb-rollout-steps', default=100, type=int, help='number rollout steps')
     parser.add_argument('--nb-train-steps', default=50, type=int, help='number train steps')
     parser.add_argument('--max-episode-length', default=1000, type=int, help='max steps in one episode')
-    parser.add_argument('--nb-warmup-steps', default=100, type=int, help='time without training but only filling the replay memory')
     
+    parser.add_argument('--nb-warmup-steps', default=100, type=int, help='time without training but only filling the replay memory')
+    parser.add_argument('--train-mode', default=0, type=int, help='traing mode')
     #Model args
     parser.add_argument('--hidden1', default=64, type=int, help='number of hidden1')
     parser.add_argument('--hidden2', default=64, type=int, help='number of hidden2')
@@ -130,7 +131,7 @@ if __name__ == "__main__":
     
     trainer = DDPG_trainer(nb_epoch = args.nb_epoch, nb_cycles_per_epoch = args.nb_cycles_per_epoch,
                          nb_rollout_steps = args.nb_rollout_steps, nb_train_steps = args.nb_train_steps,
-                         nb_warmup_steps = args.nb_warmup_steps)
+                         nb_warmup_steps = args.nb_warmup_steps, train_mode = args.train_mode)
     trainer.setup(env = env, agent = agent, evaluator = Singleton_evaluator, logger = Singleton_logger)
     
     trainer.warmup()
