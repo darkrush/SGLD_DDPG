@@ -221,10 +221,10 @@ class DDPG(object):
     
     def update_actor_target(self,soft_update = True):
         if soft_update:
-            for target_param, param in zip(self.critic_target.parameters(), self.critic.parameters()):
+            for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
                 target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
         else:
-            for target_param, param in zip(self.critic_target.parameters(), self.critic.parameters()):
+            for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
                 target_param.data.copy_(param.data)
                 
     def update_num_pseudo_batches(self):
@@ -263,6 +263,26 @@ class DDPG(object):
         with torch.no_grad():
             distance = torch.mean(torch.sqrt(torch.sum((self.actor(tensor_obs0)- self.measure_actor(tensor_obs0))**2,1)))
         self.parameter_noise.adapt(distance)
+    
+    def calc_last_error(self):
+        # Sample batch
+        batch = self.memory.sample_last(self.batch_size)
+        tensor_obs0 = batch['obs0']
+        tensor_obs1 = batch['obs1']
+        if self.obs_norm is not None:
+            tensor_obs0 = self.obs_norm(tensor_obs0)
+            tensor_obs1 = self.obs_norm(tensor_obs1)
+        # Prepare for the target q batch
+        with torch.no_grad():
+            next_q_values = self.critic_target([
+                tensor_obs1,
+                self.actor_target(tensor_obs1),
+            ])
+        
+            target_q_batch = batch['rewards'] + self.discount*(1-batch['terminals1'])*next_q_values
+            q_batch = self.critic_target([tensor_obs0, batch['actions']])
+            value_loss = nn.functional.mse_loss(q_batch, target_q_batch)
+        return value_loss.item()
         
     def select_action(self, s_t, if_noise = True):
         s_t = torch.tensor(s_t,dtype = torch.float32,requires_grad = False)
