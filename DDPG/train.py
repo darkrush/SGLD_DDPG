@@ -1,5 +1,6 @@
 import numpy as np
 from copy import deepcopy
+from check import Singleton_checker
 
 class DDPG_trainer(object):
     def __init__(self, nb_epoch, nb_cycles_per_epoch, nb_rollout_steps, nb_train_steps, nb_warmup_steps, train_mode = 0):
@@ -30,6 +31,7 @@ class DDPG_trainer(object):
         self.agent.reset_noise()
         
     def warmup(self):
+        Singleton_checker.get_flag('nb_warmup_steps',self.nb_warmup_steps)
         for t_warmup in range(self.nb_warmup_steps):
         
             #pick action by actor randomly
@@ -55,8 +57,12 @@ class DDPG_trainer(object):
                 
     def train(self):
         self.agent.append_agent()
+        
+        Singleton_checker.get_flag('nb_epoch',self.nb_epoch)
+        Singleton_checker.get_flag('nb_cycles_per_epoch',self.nb_cycles_per_epoch)
+        Singleton_checker.get_flag('nb_rollout_steps',self.nb_rollout_steps)
+        
         for epoch in range(self.nb_epoch):
-            
             for cycle in range(self.nb_cycles_per_epoch):
                 self.total_cycle += 1
                 self.agent.pick_agent()
@@ -88,6 +94,7 @@ class DDPG_trainer(object):
                 #update agent for nb_train_steps times
                 self.agent.update_num_pseudo_batches()
                 if self.train_mode == 0:
+                    Singleton_checker.get_flag('nb_rollout_steps',self.nb_rollout_steps)
                     cl_list = []
                     al_list = []
                     self.agent.adapt_param_noise()

@@ -8,6 +8,7 @@ import gym
 
 from logger import Singleton_logger
 from evaluator import Singleton_evaluator
+from check import Singleton_checker
 from model import Actor,Critic
 from memory import Memory
 from train import DDPG_trainer
@@ -132,6 +133,11 @@ if __name__ == "__main__":
                          nb_rollout_steps = args.nb_rollout_steps, nb_train_steps = args.nb_train_steps,
                          nb_warmup_steps = args.nb_warmup_steps)
     trainer.setup(env = env, agent = agent, evaluator = Singleton_evaluator, logger = Singleton_logger)
+    
+    
+    Singleton_checker.set_up(args.result_dir)
+    for key, value in args.__dict__.items():
+        Singleton_checker.set_flag(key,value)
     
     trainer.warmup()
     trainer.train()
