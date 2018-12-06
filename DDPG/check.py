@@ -18,15 +18,16 @@ class Checker(object):
             self.flag_dict = {}
     @Debug    
     def set_flag(self, flag_tag, flag_value):
+        print('**** Info: Set Flag! {} value is {}.****'.format(flag_tag,flag_value))
         self.flag_dict[flag_tag] =flag_value
     
     @Debug
     def get_flag(self, flag_tag, flag_value):
         if not flag_tag in self.flag_dict:
-            print('**** Fatal Error: Empty Flag! ****')
+            print('**** Fatal Error: Empty Flag! {} not in dict.****'.format(flag_tag))
             return False
         if not self.flag_dict[flag_tag] == flag_value:
-            print('**** Fatal Error: Flag Mismatch! ****')
+            print('**** Fatal Error: Flag Mismatch! {} is {} but get {} ****'.format(flag_tag,self.flag_dict[flag_tag],flag_value))
             return False
         return True
         

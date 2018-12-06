@@ -91,7 +91,11 @@ if __name__ == "__main__":
     if args.result_dir is None:
         args.result_dir = os.path.join(args.output, args.env+args.exp_name)
     os.makedirs(args.result_dir, exist_ok=True)
-        
+    
+    Singleton_checker.set_up(args.result_dir)
+    for key, value in args.__dict__.items():
+        Singleton_checker.set_flag(key,value)
+    
     Singleton_logger.setup(args.result_dir,multi_process = args.multi_process)
     Singleton_evaluator.setup(args.env, logger = Singleton_logger, obs_norm = args.obs_norm, num_episodes = 10, max_episode_length=args.max_episode_length, model_dir = args.result_dir, multi_process = args.multi_process, visualize = args.eval_visualize, rand_seed = args.rand_seed)
 
@@ -134,12 +138,7 @@ if __name__ == "__main__":
                          nb_rollout_steps = args.nb_rollout_steps, nb_train_steps = args.nb_train_steps,
                          nb_warmup_steps = args.nb_warmup_steps, train_mode = args.train_mode)
     trainer.setup(env = env, agent = agent, evaluator = Singleton_evaluator, logger = Singleton_logger)
-    
-    
-    Singleton_checker.set_up(args.result_dir)
-    for key, value in args.__dict__.items():
-        Singleton_checker.set_flag(key,value)
-    
+
     trainer.warmup()
     trainer.train()
     

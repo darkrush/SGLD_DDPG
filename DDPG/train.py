@@ -61,6 +61,8 @@ class DDPG_trainer(object):
         Singleton_checker.get_flag('nb_epoch',self.nb_epoch)
         Singleton_checker.get_flag('nb_cycles_per_epoch',self.nb_cycles_per_epoch)
         Singleton_checker.get_flag('nb_rollout_steps',self.nb_rollout_steps)
+        Singleton_checker.get_flag('nb_train_steps',self.nb_train_steps)
+        
         
         for epoch in range(self.nb_epoch):
             for cycle in range(self.nb_cycles_per_epoch):
@@ -94,7 +96,7 @@ class DDPG_trainer(object):
                 #update agent for nb_train_steps times
                 self.agent.update_num_pseudo_batches()
                 if self.train_mode == 0:
-                    Singleton_checker.get_flag('nb_rollout_steps',self.nb_rollout_steps)
+                    Singleton_checker.get_flag('train_mode',0)
                     cl_list = []
                     al_list = []
                     self.agent.adapt_param_noise()
@@ -110,6 +112,7 @@ class DDPG_trainer(object):
                     al_mean = np.mean(al_list)
                     cl_mean = np.mean(cl_list)
                 elif self.train_mode == 1:
+                    Singleton_checker.get_flag('train_mode',1)
                     cl_list = []
                     al_list = []
                     self.agent.adapt_param_noise()
@@ -119,7 +122,7 @@ class DDPG_trainer(object):
                     for t_train in range(self.nb_train_steps):
                         al = self.agent.update_actor()
                         al_list.append(al)
-                    self.agent.update_actor_target(soft_update = False )
+                    self.agent.update_actor_target(soft_update = False)
                     self.agent.update_critic_target(soft_update = False)
                     al_mean = np.mean(al_list)
                     cl_mean = np.mean(cl_list)

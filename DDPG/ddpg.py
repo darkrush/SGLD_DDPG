@@ -8,6 +8,7 @@ from obs_norm import Run_Normalizer
 from model_pool import Model_pool
 from memory import Memory
 from sgld import SGLD
+from check import Singleton_checker
 
 class DDPG(object):
     def __init__(self, actor_lr, critic_lr, lr_decay,
@@ -65,7 +66,8 @@ class DDPG(object):
                 if net is not None:
                     net.cuda()
                     
-            
+        
+        Singleton_checker.get_flag('actor_lr',self.actor_lr)
         if (self.SGLD_mode == 1)or(self.SGLD_mode == 3):
             self.actor_optim  = SGLD(self.actor.parameters(),
                                      lr=self.actor_lr,
@@ -73,8 +75,14 @@ class DDPG(object):
                                      num_burn_in_steps = 1000)
         else :
             self.actor_optim  = Adam(self.actor.parameters(), lr=self.actor_lr)
+            
+            
+        Singleton_checker.get_flag('critic_lr',self.critic_lr)
+        Singleton_checker.get_flag('l2_critic',self.l2_critic)
+        
         
         if (self.SGLD_mode == 2)or(self.SGLD_mode == 3):
+            Singleton_checker.get_flag('SGLD_noise',SGLD_noise)
             p_groups = [{'params': [param,],
                          'noise_switch': self.SGLD_noise and (True if ('LN' not in name) else False),
                          'weight_decay': self.l2_critic if ('weight' in name) and ('LN' not in name) else 0
@@ -89,6 +97,8 @@ class DDPG(object):
                          'weight_decay': self.l2_critic if ('weight' in name) and ('LN' not in name) else 0
                         } for name,param in self.critic.named_parameters() ]
             self.critic_optim  = Adam(params = p_groups, lr=self.critic_lr, weight_decay = self.l2_critic)
+        
+        
         
         self.memory = memory
         
@@ -119,6 +129,8 @@ class DDPG(object):
         
     def update(self):
         # Sample batch
+        
+        Singleton_checker.get_flag('batch_size',self.batch_size)
         batch = self.memory.sample(self.batch_size)
         tensor_obs0 = batch['obs0']
         tensor_obs1 = batch['obs1']
@@ -131,8 +143,9 @@ class DDPG(object):
                 tensor_obs1,
                 self.actor_target(tensor_obs1),
             ])
-        
             target_q_batch = batch['rewards'] + self.discount*(1-batch['terminals1'])*next_q_values
+        Singleton_checker.get_flag('discount',self.discount)
+        
         # Critic update
         self.critic.zero_grad()
 
@@ -152,17 +165,13 @@ class DDPG(object):
         policy_loss = policy_loss.mean()
         policy_loss.backward()
         self.actor_optim.step()
-        
-        # Target update
-        for target,source in ((self.actor_target, self.actor),(self.critic_target, self.critic)):
-            for target_param, param in zip(target.parameters(), source.parameters()):
-                target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
 
         return value_loss.item(),policy_loss.item()
 
     def update_critic(self, batch = None, pass_batch = False):
         # Sample batch
         if batch is None:
+            Singleton_checker.get_flag('batch_size',self.batch_size)
             batch = self.memory.sample(self.batch_size)
         assert batch is not None
         tensor_obs0 = batch['obs0']
@@ -192,6 +201,7 @@ class DDPG(object):
         
     def update_actor(self, batch = None, pass_batch = False):
         if batch is None:
+            Singleton_checker.get_flag('batch_size',self.batch_size)
             batch = self.memory.sample(self.batch_size)
         assert batch is not None  
         tensor_obs0 = batch['obs0']
@@ -213,6 +223,7 @@ class DDPG(object):
 
     def update_critic_target(self,soft_update = True):
         if soft_update:
+            Singleton_checker.get_flag('tau',self.tau)
             for target_param, param in zip(self.critic_target.parameters(), self.critic.parameters()):
                 target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
         else:
@@ -221,6 +232,7 @@ class DDPG(object):
     
     def update_actor_target(self,soft_update = True):
         if soft_update:
+            Singleton_checker.get_flag('tau',self.tau)
             for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
                 target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
         else:
@@ -238,6 +250,7 @@ class DDPG(object):
                 group['num_pseudo_batches'] = self.memory.nb_entries
             
     def apply_lr_decay(self):
+        Singleton_checker.get_flag('lr_decay', self.lr_decay)
         if self.lr_decay > 0:
             self.lr_coef = self.lr_decay*self.lr_coef/(self.lr_coef+self.lr_decay)
             for group in self.actor_optim.param_groups:
@@ -246,6 +259,7 @@ class DDPG(object):
                 group['lr'] = self.critic_lr * self.lr_coef
         
     def apply_noise_decay(self):
+        Singleton_checker.get_flag('noise_decay',self.noise_decay)
         if self.noise_decay > 0:
             self.noise_coef = self.noise_decay*self.noise_coef/(self.noise_coef+self.noise_decay)
             
@@ -295,10 +309,13 @@ class DDPG(object):
                 action = self.actor(s_t).cpu().numpy().squeeze(0)
             else:
                 if (self.SGLD_mode is not 0):
+                    Singleton_checker.get_flag('SGLD_mode',self.SGLD_mode)
                     action = self.noise_actor(s_t).cpu().numpy().squeeze(0)
                 elif (self.parameter_noise is not None):
+                    Singleton_checker.get_flag('parameter_noise',True)
                     action = self.noise_actor(s_t).cpu().numpy().squeeze(0)
                 elif (self.action_noise is not None):
+                    Singleton_checker.get_flag('action_noise', True)
                     action = self.actor(s_t).cpu().numpy().squeeze(0)
                     action += max(self.noise_coef, 0)*self.action_noise()
                 else:

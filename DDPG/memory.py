@@ -1,8 +1,10 @@
 import torch
+from check import Singleton_checker
 
 class Memory(object):
     def __init__(self, limit, action_shape, observation_shape, with_cuda):
         self.limit = limit
+        Singleton_checker.get_flag('buffer_size',self.limit)
         self._next_entry = 0
         self._nb_entries = 0
         self.with_cuda = with_cuda

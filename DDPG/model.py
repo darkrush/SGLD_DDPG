@@ -1,9 +1,10 @@
 
 import numpy as np
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from check import Singleton_checker
 
 def fanin_init(size, fanin=None):
     fanin = fanin or size[0]
@@ -22,9 +23,12 @@ class Actor(nn.Module):
         if self.layer_norm :
             self.LN1 = nn.LayerNorm(hidden1)
             self.LN2 = nn.LayerNorm(hidden2)
-        
-        
         self.init_weights(init_w)
+        
+        Singleton_checker.get_flag('hidden1',hidden1)
+        Singleton_checker.get_flag('hidden2',hidden2)
+        Singleton_checker.get_flag('layer_norm',layer_norm)
+        
     
     def init_weights(self, init_w):
         self.fc1.weight.data = fanin_init(self.fc1.weight.data.size())
@@ -55,8 +59,11 @@ class Critic(nn.Module):
         if self.layer_norm :
             self.LN1 = nn.LayerNorm(hidden1)
             self.LN2 = nn.LayerNorm(hidden2)
-        
         self.init_weights(init_w)
+        
+        Singleton_checker.get_flag('hidden1',hidden1)
+        Singleton_checker.get_flag('hidden2',hidden2)
+        Singleton_checker.get_flag('layer_norm',layer_norm)
     
     def init_weights(self, init_w):
         self.fc1.weight.data = fanin_init(self.fc1.weight.data.size())

@@ -5,6 +5,9 @@ class AdaptiveParamNoiseSpec(object):
     def __init__(self, initial_stddev=0.1, desired_action_stddev=0.1, adoption_coefficient=1.01):
         self.initial_stddev = initial_stddev
         self.desired_action_stddev = desired_action_stddev
+        
+        Singleton_checker.get_flag('stddev',self.initial_stddev)
+        Singleton_checker.get_flag('stddev',self.desired_action_stddev)
         self.adoption_coefficient = adoption_coefficient
 
         self.current_stddev = initial_stddev
@@ -48,6 +51,8 @@ class NormalActionNoise(ActionNoise):
 # Based on http://math.stackexchange.com/questions/1287634/implementing-ornstein-uhlenbeck-in-matlab
 class OrnsteinUhlenbeckActionNoise(ActionNoise):
     def __init__(self, mu, sigma, theta=.15, dt=1e-2, x0=None):
+        for i in range(sigma.shape[0]):
+            Singleton_checker.get_flag('stddev',self.sigma[i])
         self.theta = theta
         self.mu = mu
         self.sigma = sigma
