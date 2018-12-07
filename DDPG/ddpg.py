@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam,SGD,RMSprop
 from obs_norm import Run_Normalizer
-from model_pool import Model_pool
 from memory import Memory
 from sgld import SGLD
 
@@ -15,7 +14,7 @@ class DDPG(object):
                  action_noise, noise_decay,
                  parameter_noise, SGLD_noise,
                  SGLD_mode, num_pseudo_batches, 
-                 pool_mode, pool_size, with_cuda):
+                 with_cuda):
         self.actor_lr = actor_lr
         self.critic_lr = critic_lr
         self.lr_decay = lr_decay
@@ -23,9 +22,7 @@ class DDPG(object):
         self.batch_size = batch_size
         self.discount = discount
         self.tau = tau
-        self.lr_coef = 1
-        self.noise_coef = 1
-        
+
         self.SGLD_noise = SGLD_noise
         self.action_noise = action_noise
         self.noise_decay = noise_decay
@@ -37,14 +34,11 @@ class DDPG(object):
         exploration_method = (self.action_noise is not None) + (self.parameter_noise is not None) + (self.SGLD_mode is not 0)
         assert exploration_method <=1
         
-        #pool_mode 0: no model pool, 1: actor only, 2: critic only, 3: both A&C
-        self.pool_mode = pool_mode
-        self.pool_size = pool_size
-
         self.with_cuda = with_cuda
         
     def setup(self, actor, critic, memory, obs_norm = None ):
-        
+        self.lr_coef = 1
+        self.noise_coef = 1
         self.actor         = copy.deepcopy(actor)
         self.actor_target  = copy.deepcopy(actor)
         self.critic        = copy.deepcopy(critic)
@@ -91,10 +85,6 @@ class DDPG(object):
             self.critic_optim  = Adam(params = p_groups, lr=self.critic_lr, weight_decay = self.l2_critic)
         
         self.memory = memory
-        
-        if self.pool_mode>0:
-            assert self.pool_size>0
-            self.agent_pool = Model_pool(self.pool_size)
                         
     def reset_noise(self):
         if self.action_noise is not None:
@@ -116,49 +106,6 @@ class DDPG(object):
         if self.obs_norm is not None:
             self.obs_norm.observe(s_t)
         self.memory.append(s_t, a_t, r_t, s_t1, done_t)
-        
-    def update(self):
-        # Sample batch
-        batch = self.memory.sample(self.batch_size)
-        tensor_obs0 = batch['obs0']
-        tensor_obs1 = batch['obs1']
-        if self.obs_norm is not None:
-            tensor_obs0 = self.obs_norm(tensor_obs0)
-            tensor_obs1 = self.obs_norm(tensor_obs1)
-        # Prepare for the target q batch
-        with torch.no_grad():
-            next_q_values = self.critic_target([
-                tensor_obs1,
-                self.actor_target(tensor_obs1),
-            ])
-        
-            target_q_batch = batch['rewards'] + self.discount*(1-batch['terminals1'])*next_q_values
-        # Critic update
-        self.critic.zero_grad()
-
-        q_batch = self.critic([tensor_obs0, batch['actions']])
-        value_loss = nn.functional.mse_loss(q_batch, target_q_batch)
-        value_loss.backward()
-        self.critic_optim.step()
-        
-        # Actor update
-        self.actor.zero_grad()
-
-        policy_loss = -self.critic([
-            tensor_obs0,
-            self.actor(tensor_obs0)
-        ])
-        
-        policy_loss = policy_loss.mean()
-        policy_loss.backward()
-        self.actor_optim.step()
-        
-        # Target update
-        for target,source in ((self.actor_target, self.actor),(self.critic_target, self.critic)):
-            for target_param, param in zip(target.parameters(), source.parameters()):
-                target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
-
-        return value_loss.item(),policy_loss.item()
 
     def update_critic(self, batch = None, pass_batch = False):
         # Sample batch
@@ -212,39 +159,32 @@ class DDPG(object):
             return policy_loss.item()
 
     def update_critic_target(self,soft_update = True):
-        if soft_update:
-            for target_param, param in zip(self.critic_target.parameters(), self.critic.parameters()):
-                target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
-        else:
-            for target_param, param in zip(self.critic_target.parameters(), self.critic.parameters()):
-                target_param.data.copy_(param.data)
-    
+        for target_param, param in zip(self.critic_target.parameters(), self.critic.parameters()):
+            target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau \
+                                    if soft_update \
+                                    else target_data)
+
     def update_actor_target(self,soft_update = True):
-        if soft_update:
-            for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
-                target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau)
-        else:
-            for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
-                target_param.data.copy_(param.data)
+        for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
+            target_param.data.copy_(target_param.data * (1.0 - self.tau) + param.data * self.tau \
+                                    if soft_update \
+                                    else target_data)
                 
     def update_num_pseudo_batches(self):
         if not self.adapt_pseudo_batches:
             return
-        if isinstance(self.actor_optim,SGLD):
-            for group in self.actor_optim.param_groups:
-                group['num_pseudo_batches'] = self.memory.nb_entries
-        if isinstance(self.critic_optim,SGLD):
-            for group in self.critic_optim.param_groups:
-                group['num_pseudo_batches'] = self.memory.nb_entries
-            
+        for opt in (self.actor_optim,self.critic_optim):
+            if isinstance(opt,SGLD):
+                for group in opt.param_groups:
+                    group['num_pseudo_batches'] = self.memory.nb_entries
+
     def apply_lr_decay(self):
         if self.lr_decay > 0:
             self.lr_coef = self.lr_decay*self.lr_coef/(self.lr_coef+self.lr_decay)
-            for group in self.actor_optim.param_groups:
-                group['lr'] = self.actor_lr * self.lr_coef
-            for group in self.critic_optim.param_groups:
-                group['lr'] = self.critic_lr * self.lr_coef
-        
+            for opt in (self.actor_optim,self.critic_optim):
+                for group in opt.param_groups:
+                    group['lr'] = self.actor_lr * self.lr_coef
+            
     def apply_noise_decay(self):
         if self.noise_decay > 0:
             self.noise_coef = self.noise_decay*self.noise_coef/(self.noise_coef+self.noise_decay)
@@ -278,7 +218,6 @@ class DDPG(object):
                 tensor_obs1,
                 self.actor_target(tensor_obs1),
             ])
-        
             target_q_batch = batch['rewards'] + self.discount*(1-batch['terminals1'])*next_q_values
             q_batch = self.critic_target([tensor_obs0, batch['actions']])
             value_loss = nn.functional.mse_loss(q_batch, target_q_batch)
@@ -326,23 +265,3 @@ class DDPG(object):
             obs_norm_buffer = io.BytesIO()
             torch.save(self.obs_norm, obs_norm_buffer)
         return (actor_buffer,obs_norm_buffer)
-        
-    def append_agent(self):
-        if self.pool_mode is 0:
-            return
-        model_dict = {}
-        if (self.pool_mode==1) or (self.pool_mode==3):
-            model_dict['actor'] = copy.deepcopy(self.actor.state_dict())
-        if (self.pool_mode==2) or (self.pool_mode==3):
-            model_dict['critic'] = copy.deepcopy(self.critic.state_dict())
-        self.agent_pool.model_append(model_dict)
-
-    def pick_agent(self, id = None):
-        # id: -1:last agent; None: random agent; 0~pool_size-1: specific agent
-        if self.pool_mode is 0:
-            return
-        model_dict = self.agent_pool.get_model(id)
-        if (self.pool_mode==1) or (self.pool_mode==3):
-            self.actor.load_state_dict(model_dict['actor'])
-        if (self.pool_mode==2) or (self.pool_mode==3):
-            self.critic.load_state_dict(model_dict['critic'])

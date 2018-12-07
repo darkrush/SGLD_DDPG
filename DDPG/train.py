@@ -54,13 +54,9 @@ class DDPG_trainer(object):
                 self.current_episode_length = 0
                 
     def train(self):
-        self.agent.append_agent()
         for epoch in range(self.nb_epoch):
-            
             for cycle in range(self.nb_cycles_per_epoch):
                 self.total_cycle += 1
-                self.agent.pick_agent()
-                
                 for t_rollout in range(self.nb_rollout_steps):
                 
                     #pick action by actor in state "last_observation"
@@ -122,8 +118,7 @@ class DDPG_trainer(object):
                 self.logger.trigger_log('train_episode_length', self.last_episode_length,self.total_cycle)
                 self.logger.trigger_log('train_episode_reward', self.last_episode_reward,self.total_cycle)
                 self.logger.trigger_log('actor_loss_mean', al_mean, self.total_cycle)
-                self.logger.trigger_log('critic_loss_mean', cl_mean, self.total_cycle)
-                self.agent.append_agent()    
+                self.logger.trigger_log('critic_loss_mean', cl_mean, self.total_cycle)   
             #apply hyperparameter decay
             self.agent.apply_noise_decay()
             self.agent.apply_lr_decay()

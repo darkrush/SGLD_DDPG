@@ -60,8 +60,6 @@ if __name__ == "__main__":
     parser.add_argument('--no-SGLD-noise', dest='SGLD_noise', action='store_false',help='disable SGLD noise')
     parser.set_defaults(SGLD_noise=True)
     parser.add_argument('--num-pseudo-batches', default=0, type=int, help='SGLD pseude batch number')
-    parser.add_argument('--pool-mode', default=0, type=int, help='agent pool mode, 0: no pool, 1: actor pool only, 2: critic pool only, 3: both actor & critic')
-    parser.add_argument('--pool-size', default=0, type=int, help='agent pool size, 0 means no agent pool')
     parser.add_argument('--obs-norm', dest='obs_norm', action='store_true',help='enable observation normalization')
     parser.set_defaults(obs_norm=False)
     parser.add_argument('--buffer-size', default=1e6, type=int, help='memory buffer size')
@@ -126,7 +124,7 @@ if __name__ == "__main__":
                  action_noise = action_noise, noise_decay = args.noise_decay, 
                  parameter_noise = parameter_noise, SGLD_noise = args.SGLD_noise,
                  SGLD_mode = args.SGLD_mode, num_pseudo_batches = args.num_pseudo_batches, 
-                 pool_mode = args.pool_mode, pool_size = args.pool_size, with_cuda = args.with_cuda)
+                 with_cuda = args.with_cuda)
     agent.setup(actor, critic, memory, obs_norm)
     
     trainer = DDPG_trainer(nb_epoch = args.nb_epoch, nb_cycles_per_epoch = args.nb_cycles_per_epoch,
