@@ -14,8 +14,8 @@ class SGLD_DDPG(DDPG):
 
         self.SGLD_noise = exploration_args['SGLD_noise']
         self.SGLD_mode = exploration_args['SGLD_mode']
-        #self.adapt_pseudo_batches = num_pseudo_batches is 0
         self.num_pseudo_batches = exploration_args['num_pseudo_batches']
+        self.nb_rollout_update = exploration_args['nb_rollout_update']
         
     def setup(self, nb_states, nb_actions):
         super(SGLD_DDPG, self).setup(nb_states, nb_actions)
@@ -36,6 +36,12 @@ class SGLD_DDPG(DDPG):
                                   num_pseudo_batches = self.num_pseudo_batches,
                                   num_burn_in_steps = 1000)
 
+
+    def update_critic(self, batch = None, pass_batch = False):
+        self.update_rollout_critic(batch, pass_batch)
+        return super(SGLD_DDPG, self).update_critic(batch, pass_batch)
+        
+        
     def update_rollout_critic(self, batch = None, pass_batch = False):
         # Sample batch
         if batch is None:
@@ -88,13 +94,9 @@ class SGLD_DDPG(DDPG):
     def reset_noise(self):
         if self.memory.nb_entries<self.batch_size:
            return
-        for target_param, param in zip(self.rollout_critic.parameters(), self.critic.parameters()):
-            target_param.data.copy_(param.data)
         for target_param, param in zip(self.rollout_actor.parameters(), self.actor.parameters()):
             target_param.data.copy_(param.data)
-        for _ in range(50):
-            self.update_rollout_critic()
-        for _ in range(50):
+        for _ in range(self.nb_rollout_update):
             self.update_rollout_actor()
         
     def before_cycle(self):

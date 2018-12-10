@@ -119,8 +119,8 @@ class DDPG_trainer(object):
             for t_train in range(self.nb_train_steps):
                 al = self.agent.update_actor()
                 al_list.append(al)
-            self.agent.update_actor_target (soft_update = False)
             self.agent.update_critic_target(soft_update = False)
+            self.agent.update_actor_target (soft_update = False)
         return np.mean(cl_list),np.mean(al_list)
         
         
