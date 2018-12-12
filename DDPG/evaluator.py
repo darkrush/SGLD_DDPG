@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-import  torch.nn.functional as F
 import argparse
 import gym.spaces
 import gym
@@ -76,7 +75,8 @@ class Evaluator(object):
                 obs = torch.tensor([observation],dtype = torch.float32,requires_grad = False).cuda()
                 with torch.no_grad():
                     action = self.actor(obs).cpu().numpy().squeeze(0)
-                action = F.softsign(action)
+                #action = np.tanh(action)
+                action = action/(np.abs(action)+1)
                 action = action * self.action_scale + self.action_bias
                 observation, reward, done,time_done, info = self.env.step(action)
                 done = done or time_done

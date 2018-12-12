@@ -45,7 +45,7 @@ class parameter_noise_DDPG(DDPG):
         batch = self.memory.sample(self.batch_size)
         tensor_obs0 = batch['obs0']
         with torch.no_grad():
-            distance = torch.mean(torch.sqrt(torch.sum((self.actor(tensor_obs0)- self.measure_actor(tensor_obs0))**2,1)))
+            distance = torch.mean(torch.sqrt(torch.sum((torch.nn.functional.softsign(self.actor(tensor_obs0))- torch.nn.functional.softsign(self.measure_actor(tensor_obs0)))**2,1)))
         self.parameter_noise.adapt(distance)
     
     def select_action(self, s_t, apply_noise):

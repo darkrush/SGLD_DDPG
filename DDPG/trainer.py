@@ -2,7 +2,6 @@ import numpy as np
 import os
 import pickle
 import torch
-import  torch.nn.functional as F
 
 import gym
 from copy import deepcopy
@@ -81,11 +80,6 @@ class DDPG_trainer(object):
                 for t_rollout in range(self.nb_rollout_steps):
                     #pick action by actor in state "last_observation"
                     action = self.agent.select_action(s_t = [self.last_observation], apply_noise = True)
-                    if isinstance(action,tuple):
-                        action,noise = action
-                        action = F.softsign(action)+noise
-                    else:
-                        action = F.softsign(action)
                     self.apply_action(action)
                     self.total_step += 1
                 #End Rollout
@@ -134,7 +128,14 @@ class DDPG_trainer(object):
         
     def apply_action(self, action):
         #apply the action to environment and get next state, reawrd and other information
-        obs, reward, done, time_done, info = self.env.step(action * self.action_scale + self.action_bias)
+        if isinstance(action,tuple):
+            action,noise = action
+            true_action = np.clip(action/(np.abs(action)+1)+noise, -1., 1.)
+            #true_action = np.clip(np.tanh(action)+noise, -1., 1.)
+        else:
+            true_action = action/(np.abs(action)+1)
+            #true_action = np.tanh(action)
+        obs, reward, done, time_done, info = self.env.step(true_action * self.action_scale + self.action_bias)
         self.current_episode_reward += reward
         self.current_episode_length += 1
         obs = deepcopy(obs)
