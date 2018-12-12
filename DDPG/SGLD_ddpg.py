@@ -16,6 +16,7 @@ class SGLD_DDPG(DDPG):
         self.SGLD_mode = exploration_args['SGLD_mode']
         self.num_pseudo_batches = exploration_args['num_pseudo_batches']
         self.nb_rollout_update = exploration_args['nb_rollout_update']
+        self.temp = exploration_args['temp']
         
     def setup(self, nb_states, nb_actions):
         super(SGLD_DDPG, self).setup(nb_states, nb_actions)
@@ -61,7 +62,7 @@ class SGLD_DDPG(DDPG):
         self.rollout_critic.zero_grad()
 
         q_batch = self.rollout_critic([tensor_obs0, batch['actions']])
-        value_loss = nn.functional.mse_loss(q_batch, target_q_batch)
+        value_loss = nn.functional.mse_loss(q_batch, target_q_batch)/self.temp
         value_loss.backward()
         self.rollout_critic_optim.step()
         if pass_batch :

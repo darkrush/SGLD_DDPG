@@ -51,6 +51,7 @@ class Args(object):
         parser.set_defaults(SGLD_noise=True)
         parser.add_argument('--num-pseudo-batches', default=0, type=int, help='SGLD pseude batch number')
         parser.add_argument('--nb-rollout-update', default=50, type=int, help='number of SGLD rollout actor step')
+        parser.add_argument('--temp', default=1, type=float, help='Temperature of SGLD')
         #Other args
         parser.add_argument('--rand-seed', default=314, type=int, help='random_seed')
         
@@ -81,7 +82,7 @@ class Args(object):
         args_main  = { key :  args.__dict__[key] for key in ('output','env', 'exp_name', 'result_dir','multi_process','rand_seed')}
         args_model = { key :  args.__dict__[key] for key in ('hidden1', 'hidden2', 'layer_norm')}
         args_train = { key :  args.__dict__[key] for key in ('nb_epoch', 'nb_cycles_per_epoch', 'nb_rollout_steps', 'nb_train_steps', 'nb_warmup_steps', 'train_mode')}
-        args_exploration = {key : args.__dict__[key] for key in ('action_noise','parameter_noise','stddev','noise_decay','SGLD_mode','SGLD_noise','num_pseudo_batches','nb_rollout_update')}
+        args_exploration = {key : args.__dict__[key] for key in ('action_noise','parameter_noise','stddev','noise_decay','SGLD_mode','SGLD_noise','num_pseudo_batches','nb_rollout_update','temp')}
         args_agent = { key :  args.__dict__[key] for key in ('actor_lr','critic_lr','lr_decay','l2_critic','batch_size','discount','tau','buffer_size','with_cuda')}
         
         self.args_dict={'main':args_main, 'model':args_model, 'train':args_train, 'exploration':args_exploration, 'agent':args_agent}
