@@ -2,6 +2,8 @@ import numpy as np
 import os
 import pickle
 import torch
+import  torch.nn.functional as F
+
 import gym
 from copy import deepcopy
 
@@ -78,7 +80,13 @@ class DDPG_trainer(object):
                 
                 for t_rollout in range(self.nb_rollout_steps):
                     #pick action by actor in state "last_observation"
-                    self.apply_action(self.agent.select_action(s_t = [self.last_observation], apply_noise = True))
+                    action = self.agent.select_action(s_t = [self.last_observation], apply_noise = True)
+                    if isinstance(action,tuple):
+                        action,noise = action
+                        action = F.softsign(action)+noise
+                    else:
+                        action = F.softsign(action)
+                    self.apply_action(action)
                     self.total_step += 1
                 #End Rollout
                 

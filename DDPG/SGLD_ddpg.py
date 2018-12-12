@@ -120,5 +120,5 @@ class SGLD_DDPG(DDPG):
                 action = self.rollout_actor(s_t).cpu().numpy().squeeze(0)
             else:
                 action = self.actor(s_t).cpu().numpy().squeeze(0)
-        action = np.clip(action, -1., 1.)
+        #action = np.clip(action, -1., 1.)
         return action    

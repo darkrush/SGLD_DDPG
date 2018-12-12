@@ -149,7 +149,7 @@ class DDPG(object):
             s_t = s_t.cuda()
         with torch.no_grad():
             action = self.actor(s_t).cpu().numpy().squeeze(0)
-        action = np.clip(action, -1., 1.)
+        #action = np.clip(action, -1., 1.)
         return action
         
     def load_weights(self, output): 

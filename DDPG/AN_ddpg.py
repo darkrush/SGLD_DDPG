@@ -37,7 +37,7 @@ class action_noise_DDPG(DDPG):
             s_t = s_t.cuda()
         with torch.no_grad():
             action = self.actor(s_t).cpu().numpy().squeeze(0)
-        if apply_noise:
-            action += max(self.noise_coef, 0)*self.action_noise()
-        action = np.clip(action, -1., 1.)
-        return action
+        
+        noise = (self.noise_coef if apply_noise else 0)*self.action_noise()
+        #action = np.clip(action, -1., 1.)
+        return action,noise

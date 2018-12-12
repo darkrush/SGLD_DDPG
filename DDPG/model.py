@@ -18,7 +18,7 @@ class Actor(nn.Module):
         self.fc2 = nn.Linear(hidden1, hidden2)
         self.fc3 = nn.Linear(hidden2, nb_actions, bias = False)
         self.relu = nn.ReLU()
-        self.softsign = nn.Softsign()
+        #self.softsign = nn.Softsign()
         if self.layer_norm :
             self.LN1 = nn.LayerNorm(hidden1)
             self.LN2 = nn.LayerNorm(hidden2)
@@ -41,7 +41,7 @@ class Actor(nn.Module):
             out = self.LN2(out)
         out = self.relu(out)
         out = self.fc3(out)
-        out = self.softsign(out)
+        #out = self.softsign(out)
         return out
 
 class Critic(nn.Module):
