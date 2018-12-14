@@ -17,17 +17,29 @@ class DDPG_trainer(object):
         self.nb_rollout_steps = train_args['nb_rollout_steps']
         self.nb_train_steps = train_args['nb_train_steps']
         self.nb_warmup_steps = train_args['nb_warmup_steps']
+        self.rand_seed = train_args['rand_seed']
+        self.resume = train_args['resume']
         self.train_mode = train_args['train_mode']
         
+        
     def setup(self):
+        self.env = gym.make(main_args['env'])
+        
+        if self.resume:
+            pass
+        else:
+            if self.rand_seed >= 0 :
+                if args.with_cuda:
+                    torch.backends.cudnn.deterministic = True
+                    torch.cuda.manual_seed_all(self.rand_seed)
+                torch.manual_seed(self.rand_seed)
+                numpy.random.seed(self.rand_seed)
+                
         main_args = Singleton_arger()['main']
         Singleton_logger.setup(main_args['result_dir'],multi_process = main_args['multi_process'])
 
-        Singleton_evaluator.setup(main_args['env'], logger = Singleton_logger, num_episodes = 10, model_dir = main_args['result_dir'], multi_process = main_args['multi_process'], visualize = False, rand_seed = main_args['rand_seed'])
+        Singleton_evaluator.setup(main_args['env'], logger = Singleton_logger, num_episodes = 10, model_dir = main_args['result_dir'], multi_process = main_args['multi_process'], visualize = False, rand_seed = self.rand_seed)
 
-        self.env = gym.make(main_args['env'])
-        if main_args['rand_seed']>= 0:
-            self.env.seed(main_args['rand_seed'])
         nb_actions = self.env.action_space.shape[0]
         nb_states = self.env.observation_space.shape[0]
         
@@ -58,6 +70,8 @@ class DDPG_trainer(object):
         self.current_episode_reward = 0.
         self.last_episode_reward = 0.
         self.total_step = 0
+        if self.rand_seed >= 0:
+            self.env.seed(np.random.randint())
         self.last_observation = deepcopy(self.env.reset())
         self.agent.reset_noise()
         
@@ -123,7 +137,6 @@ class DDPG_trainer(object):
             self.agent.update_actor_target (soft_update = False)
         return np.mean(cl_list),np.mean(al_list)
         
-        
     def apply_action(self, action):
         #apply the action to environment and get next state, reawrd and other information
         obs, reward, done, time_done, info = self.env.step(action * self.action_scale + self.action_bias)
@@ -137,13 +150,16 @@ class DDPG_trainer(object):
         
         #if current episode is done
         if done or time_done:
+            if self.rand_seed >= 0:
+                self.env.seed(np.random.randint())
             self.last_observation = deepcopy(self.env.reset())
             self.agent.reset_noise()
             self.last_episode_reward = self.current_episode_reward
             self.last_episode_length = self.current_episode_length
             self.current_episode_reward = 0.
             self.current_episode_length = 0
-            
+    def dump(self):
+        
     def __del__(self):
         Singleton_evaluator.trigger_close()
         Singleton_logger.trigger_close()
