@@ -77,15 +77,15 @@ class Args(object):
             with open(os.path.join(args.result_dir,'args.txt'),'w') as f:
                 print(args,file = f)
             assert  args.action_noise + args.parameter_noise + (args.SGLD_mode is not 0) <= 1
-            
-        args_main  = { key :  args.__dict__[key] for key in ('output','env', 'exp_name', 'result_dir','multi_process')}
-        args_model = { key :  args.__dict__[key] for key in ('hidden1', 'hidden2', 'layer_norm')}
-        args_train = { key :  args.__dict__[key] for key in ('nb_epoch', 'nb_cycles_per_epoch', 'nb_rollout_steps', 'nb_train_steps', 'nb_warmup_steps','rand_seed','resume', 'train_mode')}
-        args_exploration = {key : args.__dict__[key] for key in ('action_noise','parameter_noise','stddev','noise_decay','SGLD_mode','SGLD_noise','num_pseudo_batches','nb_rollout_update','temp')}
-        args_agent = { key :  args.__dict__[key] for key in ('actor_lr','critic_lr','lr_decay','l2_critic','batch_size','discount','tau','buffer_size','with_cuda')}
-        self.args_dict={'main':args_main, 'model':args_model, 'train':args_train, 'exploration':args_exploration, 'agent':args_agent}
+        self.args = args
+        #args_main  = { key :  args.__dict__[key] for key in ('output','env', 'exp_name', 'result_dir','multi_process')}
+        #args_model = { key :  args.__dict__[key] for key in ('hidden1', 'hidden2', 'layer_norm')}
+        #args_train = { key :  args.__dict__[key] for key in ('nb_epoch', 'nb_cycles_per_epoch', 'nb_rollout_steps', 'nb_train_steps', 'nb_warmup_steps','rand_seed','resume', 'train_mode')}
+        #args_exploration = {key : args.__dict__[key] for key in ('action_noise','parameter_noise','stddev','noise_decay','SGLD_mode','SGLD_noise','num_pseudo_batches','nb_rollout_update','temp')}
+        #args_agent = { key :  args.__dict__[key] for key in ('actor_lr','critic_lr','lr_decay','l2_critic','batch_size','discount','tau','buffer_size','with_cuda')}
+        #self.args_dict={'main':args_main, 'model':args_model, 'train':args_train, 'exploration':args_exploration, 'agent':args_agent}
         
     def __call__(self):
-        return self.args_dict
+        return self.args.__dict__
         
 Singleton_arger = Args()

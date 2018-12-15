@@ -42,14 +42,19 @@ class Evaluator(object):
     def start_eval_process(self,queue):
         self.setup_gym_env()
         while True:
-            item = queue.get(block = True)
+            inst, item = queue.get(block = True)
             if item is '__close__':
                 break
-            if isinstance(item,str):
+            elif item is '__load__':
                 self.laod_from_file(item)
-            else:
+            elif item is '__eval__':
                 self.run_eval(item)
-            
+            elif item is '__seed__':
+                self.set_seed(item)
+    
+    def set_seed(self,seed):
+        self.seed = seed
+    
     def load_from_buffer(self, buffer):
         self.actor = torch.load(buffer)
         
@@ -64,7 +69,7 @@ class Evaluator(object):
         observation = None
         result = []
         for episode in range(self.num_episodes):
-
+            self.env.seed(self.seed+episode)
             observation = self.env.reset()
             episode_steps = 0
             episode_reward = 0.
@@ -94,22 +99,28 @@ class Evaluator(object):
             self.logger.trigger_log( 'eval_reward_std',result_std, total_cycle)
         localtime = time.asctime( time.localtime(time.time()) )
         print("{} eval : cycle {:<5d}\treward mean {:.2f}\treward std {:.2f}".format(localtime,total_cycle,result_mean,result_std))
-        
+
+    def trigger_set_seed(self,seed):
+        if self.multi_process :
+            self.queue.put(('__seed__',seed),block = True)
+        else:
+            self.set_seed(seed)
+            
     def trigger_load_from_file(self, actor_dir):
         if self.multi_process :
-            self.queue.put(actor_dir,block = True)
+            self.queue.put(('__load__',actor_dir),block = True)
         else:
             self.laod_from_file(actor_dir)
     
     def trigger_eval_process(self,total_cycle):
         if self.multi_process :
-            self.queue.put(total_cycle,block = True)
+            self.queue.put(('__eval__',total_cycle),block = True)
         else :
             self.run_eval(total_cycle)
 
     def trigger_close(self):
         if self.multi_process :
-            self.queue.put('__close__',block = True)
+            self.queue.put(('__close__',None),block = True)
 
     def __del__(self):
         if self.env is not None:
