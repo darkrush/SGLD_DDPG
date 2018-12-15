@@ -113,14 +113,24 @@ class DDPG_trainer(object):
                 cl_list.append(cl)
                 al_list.append(al)
         elif self.train_mode == 1:
-            for t_train in range(self.nb_train_steps):
-                cl = self.agent.update_critic()
-                cl_list.append(cl)
-            for t_train in range(self.nb_train_steps):
-                al = self.agent.update_actor()
-                al_list.append(al)
-            self.agent.update_critic_target(soft_update = False)
-            self.agent.update_actor_target (soft_update = False)
+            if isinstance(self.agent, SGLD_DDPG)
+                for t_train in range(self.nb_train_steps):
+                    cl = self.agent.update_critic(last_step = self.nb_train_steps-t_train-1)
+                    cl_list.append(cl)
+                for t_train in range(int(self.nb_train_steps)):
+                    al = self.agent.update_actor()
+                    al_list.append(al)
+                self.agent.update_critic_target(soft_update = False)
+                self.agent.update_actor_target (soft_update = False)
+            else:
+                for t_train in range(self.nb_train_steps):
+                    cl = self.agent.update_critic()
+                    cl_list.append(cl)
+                for t_train in range(self.nb_train_steps):
+                    al = self.agent.update_actor()
+                    al_list.append(al)
+                self.agent.update_critic_target(soft_update = False)
+                self.agent.update_actor_target (soft_update = False)
         return np.mean(cl_list),np.mean(al_list)
         
         

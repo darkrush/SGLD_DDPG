@@ -17,33 +17,51 @@ class SGLD_DDPG(DDPG):
         self.num_pseudo_batches = exploration_args['num_pseudo_batches']
         self.nb_rollout_update = exploration_args['nb_rollout_update']
         self.temp = exploration_args['temp']
+        self.critic_sample_number = 5
         
     def setup(self, nb_states, nb_actions):
         super(SGLD_DDPG, self).setup(nb_states, nb_actions)
         self.rollout_actor   = copy.deepcopy(self.actor)
-        self.rollout_critic  = copy.deepcopy(self.critic)
         if self.with_cuda:
-            for net in (self.rollout_actor,self.rollout_critic):
+            for net in (self.rollout_actor,):
                 if net is not None:
                     net.cuda()
-                    
+        self.critic_pool = []
+            for _ in range(self.critic_sample_number)
+                self.critic_pool.append(copy.deepcopy(self.critic))
         self.rollout_actor_optim  = Adam(self.rollout_actor.parameters(), lr=self.actor_lr)
         p_groups = [{'params': [param,],
                      'noise_switch': self.SGLD_noise and (True if ('LN' not in name) else False),
                      'weight_decay': self.l2_critic if ('weight' in name) and ('LN' not in name) else 0
                     } for name,param in self.rollout_critic.named_parameters() ]
-        self.rollout_critic_optim  = SGLD(params = p_groups,
+        self.critic_optim  = SGLD(params = p_groups,
                                   lr = self.critic_lr,
                                   num_pseudo_batches = self.num_pseudo_batches,
                                   num_burn_in_steps = 1000)
 
 
-    def update_critic(self, batch = None, pass_batch = False):
-        self.update_rollout_critic(batch, pass_batch)
-        return super(SGLD_DDPG, self).update_critic(batch, pass_batch)
+    def update_rollout_actor(self, batch = None, pass_batch = False):
+        if batch is None:
+            batch = self.memory.sample(self.batch_size)
+        assert batch is not None  
+        tensor_obs0 = batch['obs0']
+        # Actor update
+        self.rollout_actor.zero_grad()
+
+        policy_loss = -self.critic([
+            tensor_obs0,
+            self.rollout_actor(tensor_obs0)
+        ])
         
-        
-    def update_rollout_critic(self, batch = None, pass_batch = False):
+        policy_loss = policy_loss.mean()
+        policy_loss.backward()
+        self.rollout_actor_optim.step()  
+        if pass_batch :
+            return policy_loss.item(), batch
+        else:
+            return policy_loss.item()
+
+    def update_critic(self, last_step, batch = None, pass_batch = False):
         # Sample batch
         if batch is None:
             batch = self.memory.sample(self.batch_size)
@@ -59,39 +77,35 @@ class SGLD_DDPG(DDPG):
         
             target_q_batch = batch['rewards'] + self.discount*(1-batch['terminals1'])*next_q_values
         # Critic update
-        self.rollout_critic.zero_grad()
-
-        q_batch = self.rollout_critic([tensor_obs0, batch['actions']])
-        value_loss = nn.functional.mse_loss(q_batch, target_q_batch)/self.temp
+        self.critic.zero_grad()
+        q_batch = self.critic([tensor_obs0, batch['actions']])
+        value_loss = nn.functional.mse_loss(q_batch, target_q_batch)
         value_loss.backward()
-        self.rollout_critic_optim.step()
+        self.critic_optim.step()
+        if last_step < self.critic_sample_number:
+            for target_param, param in zip(self.critic_pool[last_step].parameters(), self.critc.parameters()):
+                target_param.data.copy_(param.data)
         if pass_batch :
             return value_loss.item(), batch
         else:
             return value_loss.item()
-        
-    def update_rollout_actor(self, batch = None, pass_batch = False):
+    def update_actor(self, batch = None, pass_batch = False):
         if batch is None:
             batch = self.memory.sample(self.batch_size)
         assert batch is not None  
         tensor_obs0 = batch['obs0']
         # Actor update
-        self.rollout_actor.zero_grad()
-
-        policy_loss = -self.rollout_critic([
-            tensor_obs0,
-            self.rollout_actor(tensor_obs0)
-        ])
-        
-        policy_loss = policy_loss.mean()
-        policy_loss.backward()
-        self.rollout_actor_optim.step()  
+        self.actor.zero_grad()
+        for critic_id in self.critic_sample_number:
+            policy_loss = -self.critic_pool[critic_id]([ tensor_obs0, self.actor(tensor_obs0) ])
+            policy_loss = policy_loss.mean()
+            policy_loss.backward()
+        self.actor_optim.step()  
         if pass_batch :
             return policy_loss.item(), batch
         else:
             return policy_loss.item()
-
-
+            
     def reset_noise(self):
         if self.memory.nb_entries<self.batch_size:
            return
@@ -106,7 +120,7 @@ class SGLD_DDPG(DDPG):
     def update_num_pseudo_batches(self):
         if self.num_pseudo_batches is not 0:
             return
-        for opt in (self.rollout_actor_optim,self.rollout_critic_optim):
+        for opt in (self.rollout_actor_optim,):
             if isinstance(opt,SGLD):
                 for group in opt.param_groups:
                     group['num_pseudo_batches'] = self.memory.nb_entries
