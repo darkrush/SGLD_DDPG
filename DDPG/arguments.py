@@ -61,9 +61,9 @@ class Args(object):
         
         args = parser.parse_args()
         if args.result_dir is None:
-            args.result_dir = os.path.join(args.output, args.env+args.exp_name)
+            args.result_dir = os.path.join(args.output, args.env, args.exp_name, args.rand_seed)
             
-        os.makedirs(args.result_dir, exist_ok=True)
+        os.makedirs(args.result_dir, exist_ok=False)
         
         if not torch.cuda.is_available():
             args.with_cuda = False
@@ -72,7 +72,7 @@ class Args(object):
         with open(os.path.join(args.result_dir,'args.txt'),'w') as f:
             print(args,file = f)
         
-        if args.rand_seed >= 0 :
+        if args.rand_seed >= 0:
             if args.with_cuda:
                 torch.backends.cudnn.deterministic = True
                 torch.cuda.manual_seed_all(args.rand_seed)
