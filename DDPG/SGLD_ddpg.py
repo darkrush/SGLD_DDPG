@@ -27,13 +27,13 @@ class SGLD_DDPG(DDPG):
                 if net is not None:
                     net.cuda()
         self.critic_pool = []
-            for _ in range(self.critic_sample_number)
-                self.critic_pool.append(copy.deepcopy(self.critic))
+        for _ in range(self.critic_sample_number):
+            self.critic_pool.append(copy.deepcopy(self.critic))
         self.rollout_actor_optim  = Adam(self.rollout_actor.parameters(), lr=self.actor_lr)
         p_groups = [{'params': [param,],
                      'noise_switch': self.SGLD_noise and (True if ('LN' not in name) else False),
                      'weight_decay': self.l2_critic if ('weight' in name) and ('LN' not in name) else 0
-                    } for name,param in self.rollout_critic.named_parameters() ]
+                    } for name,param in self.critic.named_parameters() ]
         self.critic_optim  = SGLD(params = p_groups,
                                   lr = self.critic_lr,
                                   num_pseudo_batches = self.num_pseudo_batches,
@@ -83,7 +83,7 @@ class SGLD_DDPG(DDPG):
         value_loss.backward()
         self.critic_optim.step()
         if last_step < self.critic_sample_number:
-            for target_param, param in zip(self.critic_pool[last_step].parameters(), self.critc.parameters()):
+            for target_param, param in zip(self.critic_pool[last_step].parameters(), self.critic.parameters()):
                 target_param.data.copy_(param.data)
         if pass_batch :
             return value_loss.item(), batch
@@ -96,7 +96,7 @@ class SGLD_DDPG(DDPG):
         tensor_obs0 = batch['obs0']
         # Actor update
         self.actor.zero_grad()
-        for critic_id in self.critic_sample_number:
+        for critic_id in range(self.critic_sample_number):
             policy_loss = -self.critic_pool[critic_id]([ tensor_obs0, self.actor(tensor_obs0) ])
             policy_loss = policy_loss.mean()
             policy_loss.backward()
@@ -120,7 +120,7 @@ class SGLD_DDPG(DDPG):
     def update_num_pseudo_batches(self):
         if self.num_pseudo_batches is not 0:
             return
-        for opt in (self.rollout_actor_optim,):
+        for opt in (self.rollout_actor_optim,self.critic_optim):
             if isinstance(opt,SGLD):
                 for group in opt.param_groups:
                     group['num_pseudo_batches'] = self.memory.nb_entries

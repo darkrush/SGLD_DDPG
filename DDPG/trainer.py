@@ -9,6 +9,11 @@ from arguments import Singleton_arger
 from logger import Singleton_logger
 from evaluator import Singleton_evaluator
 
+from ddpg import DDPG
+from AN_ddpg import action_noise_DDPG
+from PN_ddpg import parameter_noise_DDPG
+from SGLD_ddpg import SGLD_DDPG
+
 class DDPG_trainer(object):
     def __init__(self):
         train_args = Singleton_arger()['train']
@@ -33,16 +38,12 @@ class DDPG_trainer(object):
         
         exploration_args = Singleton_arger()['exploration']
         if exploration_args['action_noise']:
-            from AN_ddpg import action_noise_DDPG
             self.agent = action_noise_DDPG()
         elif exploration_args['parameter_noise']:
-            from PN_ddpg import parameter_noise_DDPG
             self.agent = parameter_noise_DDPG()
         elif exploration_args['SGLD_mode'] > 0:
-            from SGLD_ddpg import SGLD_DDPG
             self.agent = SGLD_DDPG()
         else:
-            from ddpg import DDPG
             self.agent = DDPG()
             
         self.agent.setup(nb_states, nb_actions)
@@ -113,7 +114,7 @@ class DDPG_trainer(object):
                 cl_list.append(cl)
                 al_list.append(al)
         elif self.train_mode == 1:
-            if isinstance(self.agent, SGLD_DDPG)
+            if isinstance(self.agent, SGLD_DDPG):
                 for t_train in range(self.nb_train_steps):
                     cl = self.agent.update_critic(last_step = self.nb_train_steps-t_train-1)
                     cl_list.append(cl)
