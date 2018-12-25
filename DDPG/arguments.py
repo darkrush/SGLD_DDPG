@@ -61,7 +61,7 @@ class Args(object):
         
         args = parser.parse_args()
         if args.result_dir is None:
-            args.result_dir = os.path.join(args.output, args.env, args.exp_name, args.rand_seed)
+            args.result_dir = os.path.join(args.output, args.env, args.exp_name, "{}".format(args.rand_seed))
             
         os.makedirs(args.result_dir, exist_ok=False)
         

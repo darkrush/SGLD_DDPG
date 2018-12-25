@@ -7,53 +7,52 @@ import argparse
 import os
 
 parser = argparse.ArgumentParser(description='DDPG on pytorch')
-parser.add_argument('--logdir', type=str, help='result dir')
-parser.add_argument('--low',default = 1,type=int, help='first run number')
-parser.add_argument('--high',default = 4,type=int, help='last run number')
-parser.add_argument('--nb-seed',default = 4,type=int, help='number of seed')
+parser.add_argument('--logdir', default = None, type=str, help='result dir')
 parser.add_argument('--log-file',default='log_data_dict.pkl', type=str, help='log pkl file')
 parser.add_argument('--arg-file',default='args.pkl', type=str, help='args txt file')
-parser.add_argument('--item',default='', type=str, help='args txt file')
-parser.add_argument('--smooth',default=0.0, type=float, help='curve smooth coef')
-
 args = parser.parse_args()
+
+
+
+item_list = ['eval_reward_mean','actor_loss_mean','critic_loss_mean','train_episode_reward','train_episode_length']
+
+exp_list = os.listdir(os.path.join(args.logdir))
+dataframe = {}
+for exp_name in exp_list:
+    dataframe[exp_name] = {}
+
+for exp_name in exp_list:
+    seed_list = os.listdir(os.path.join(args.logdir,exp_name))
+    value_dict = {}
+    for item_name in item_list:
+        value_dict[item_name] = {}
+
+    least_length = {}
+    for item_name in item_list:
+        least_length[item_name] = None
+    for seed_name in seed_list:
+        with open(os.path.join(args.logdir,exp_name,seed_name, args.log_file),'rb') as f:
+            log_dict=pickle.load(f)
+        for item_name in item_list:
+            value,step = zip(*log_dict[item_name])
+            value_dict[item_name][seed_name] = value
+            least_length[item_name] = len(value) if (least_length[item_name] is None) or (least_length[item_name] > len(value)) else least_length[item_name]
+            value_dict[item_name]['step'] = step
+            print(exp_name,seed_name,item_name, len(step))
+    for seed_name in seed_list:
+        for item_name in item_list:
+            value_dict[item_name][seed_name] =value_dict[item_name][seed_name][:least_length[item_name]]
+            value_dict[item_name]['step'] = value_dict[item_name]['step'][:least_length[item_name]]
+    for item_name in item_list:
+        dataframe[exp_name][item_name]= pd.DataFrame(value_dict[item_name]).melt(id_vars = ['step'])
+    #for item_name in item_list:
+    #    print(item_name , exp_name, least_length[item_name])
 plt.ion()
-
-itemlist = ['eval_reward_mean','actor_loss_mean','critic_loss_mean','train_episode_reward','train_episode_length']
-for i in range(len(itemlist)):
-    for run_num in range(args.low,args.high+1):
-        with open(os.path.join(args.logdir+'{}_1'.format(run_num), args.arg_file),'rb') as f:
-            exp_args = pickle.load(f)
-        value_dict = {}
-        least_length = None
-        for seed_id in range(1,args.nb_seed+1):
-            with open(os.path.join(args.logdir+'{}_{}'.format(run_num,seed_id), args.log_file),'rb') as f:
-                m=pickle.load(f)
-            if itemlist[i] not in m:
-                continue
-            value,step = zip(*m[itemlist[i]])
-            value_dict[seed_id] = value
-            least_length = len(value) if (least_length is None) or (least_length > len(value)) else least_length
-        for seed_id in range(1,args.nb_seed+1):
-            value_dict[seed_id] =value_dict[seed_id][:least_length]
-        value_dict['step'] = step[:least_length]
-        df = pd.DataFrame(value_dict).melt(id_vars = ['step'])
-        plt.figure(i)
-        plt.title(exp_args.env +'\n'+ itemlist[i])
-        
-        label = None
-        if exp_args.SGLD_mode is not 0:
-            label = 'SGLD'
-        if exp_args.action_noise:
-            label = 'action-noise {}'.format(exp_args.stddev)
-        if exp_args.parameter_noise:
-            label = 'parameter-noise {}'.format(exp_args.stddev)
-        if label is None:
-            label = 'No exploration'
-#        label = exp_args.exp_name + ' ' + label
-        sns.lineplot(x='step',y = 'value' , data = df, ci = 'sd', label = label)
-        #plt.plot(step,mean_array,label= label)
-        plt.legend()
-
+for item_name in item_list:
+    plt.figure(item_name)
+    plt.title(args.logdir +'\n'+ item_name)
+    for exp_name in exp_list:
+        sns.lineplot(x='step',y = 'value' , data = dataframe[exp_name][item_name], ci = 'sd', label = exp_name)
+    plt.legend()
 plt.ioff()     
 plt.show()
