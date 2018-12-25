@@ -17,7 +17,6 @@ class SGLD_DDPG(DDPG):
         self.num_pseudo_batches = exploration_args['num_pseudo_batches']
         self.nb_rollout_update = exploration_args['nb_rollout_update']
         self.temp = exploration_args['temp']
-        self.critic_sample_number = 5
         
     def setup(self, nb_states, nb_actions):
         super(SGLD_DDPG, self).setup(nb_states, nb_actions)
@@ -26,9 +25,7 @@ class SGLD_DDPG(DDPG):
             for net in (self.rollout_actor,):
                 if net is not None:
                     net.cuda()
-        self.critic_pool = []
-        for _ in range(self.critic_sample_number):
-            self.critic_pool.append(copy.deepcopy(self.critic))
+
         self.rollout_actor_optim  = Adam(self.rollout_actor.parameters(), lr=self.actor_lr)
         p_groups = [{'params': [param,],
                      'noise_switch': self.SGLD_noise and (True if ('LN' not in name) else False),
@@ -61,50 +58,6 @@ class SGLD_DDPG(DDPG):
         else:
             return policy_loss.item()
 
-    def update_critic(self, last_step, batch = None, pass_batch = False):
-        # Sample batch
-        if batch is None:
-            batch = self.memory.sample(self.batch_size)
-        assert batch is not None
-        tensor_obs0 = batch['obs0']
-        tensor_obs1 = batch['obs1']
-        # Prepare for the target q batch
-        with torch.no_grad():
-            next_q_values = self.critic_target([
-                tensor_obs1,
-                self.actor_target(tensor_obs1),
-            ])
-        
-            target_q_batch = batch['rewards'] + self.discount*(1-batch['terminals1'])*next_q_values
-        # Critic update
-        self.critic.zero_grad()
-        q_batch = self.critic([tensor_obs0, batch['actions']])
-        value_loss = nn.functional.mse_loss(q_batch, target_q_batch)
-        value_loss.backward()
-        self.critic_optim.step()
-        if last_step < self.critic_sample_number:
-            for target_param, param in zip(self.critic_pool[last_step].parameters(), self.critic.parameters()):
-                target_param.data.copy_(param.data)
-        if pass_batch :
-            return value_loss.item(), batch
-        else:
-            return value_loss.item()
-    def update_actor(self, batch = None, pass_batch = False):
-        if batch is None:
-            batch = self.memory.sample(self.batch_size)
-        assert batch is not None  
-        tensor_obs0 = batch['obs0']
-        # Actor update
-        self.actor.zero_grad()
-        for critic_id in range(self.critic_sample_number):
-            policy_loss = -self.critic_pool[critic_id]([ tensor_obs0, self.actor(tensor_obs0) ])
-            policy_loss = policy_loss.mean()
-            policy_loss.backward()
-        self.actor_optim.step()  
-        if pass_batch :
-            return policy_loss.item(), batch
-        else:
-            return policy_loss.item()
             
     def reset_noise(self):
         if self.memory.nb_entries<self.batch_size:
