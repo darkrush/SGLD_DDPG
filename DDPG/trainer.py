@@ -29,8 +29,13 @@ class DDPG_trainer(object):
         Singleton_logger.setup(main_args['result_dir'],multi_process = main_args['multi_process'])
 
         Singleton_evaluator.setup(main_args['env'], logger = Singleton_logger, num_episodes = 10, model_dir = main_args['result_dir'], multi_process = main_args['multi_process'], visualize = False, rand_seed = main_args['rand_seed'])
-
-        self.env = gym.make(main_args['env'])
+        
+        env_name_list = main_args['env'].split('_')
+        if len(env_name_list)>1:
+            self.env = gym.make(env_name_list[0])
+            self.env.env.change_coef = float(env_name_list[1])
+        else:
+            self.env = gym.make(main_args['env'])
         if main_args['rand_seed']>= 0:
             self.env.seed(main_args['rand_seed'])
         nb_actions = self.env.action_space.shape[0]

@@ -33,7 +33,12 @@ class Evaluator(object):
             self.setup_gym_env()
             
     def setup_gym_env(self):
-        self.env = gym.make(self.env_name)
+        env_name_list = self.env_name.split('_')
+        if len(env_name_list)>1:
+            self.env = gym.make(env_name_list[0])
+            self.env.env.change_coef = float(env_name_list[1])
+        else:
+            self.env = gym.make(self.env_name)
         if self.rand_seed >= 0:
             self.env.seed(self.rand_seed)
         self.action_scale = (self.env.action_space.high - self.env.action_space.low)/2.0
