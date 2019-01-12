@@ -20,6 +20,13 @@ class Memory(object):
     def __getitem(self, idx):
         return {key: value[idx] for key,value in self.data_buffer.items()}
     
+    def sample_last(self, batch_size):
+        batch_idxs = torch.arange(self._next_entry - batch_size ,self._next_entry)%self._nb_entries
+        if self.with_cuda:
+            batch_idxs = batch_idxs.cuda()
+        return {key: torch.index_select(value,0,batch_idxs) for key,value in self.data_buffer.items()}
+    
+    
     def sample(self, batch_size):
         batch_idxs = torch.randint(0,self._nb_entries, (batch_size,),dtype = torch.long)
         if self.with_cuda:

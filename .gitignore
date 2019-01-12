@@ -4,3 +4,7 @@ results
 scripts
 data_record
 *.mat
+.GPU00
+.GPU01
+.GPU10
+.GPU11

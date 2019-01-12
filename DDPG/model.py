@@ -11,14 +11,14 @@ def fanin_init(size, fanin=None):
     return torch.Tensor(size).uniform_(-v, v)
 
 class Actor(nn.Module):
-    def __init__(self, nb_states, nb_actions, hidden1=64, hidden2=64, init_w=3e-3, layer_norm = False):
+    def __init__(self, nb_states, nb_actions, hidden1=64, hidden2=64, init_w=3e-3, layer_norm = True):
         super(Actor, self).__init__()
         self.layer_norm = layer_norm
         self.fc1 = nn.Linear(nb_states, hidden1)
         self.fc2 = nn.Linear(hidden1, hidden2)
-        self.fc3 = nn.Linear(hidden2, nb_actions)
+        self.fc3 = nn.Linear(hidden2, nb_actions, bias = False)
         self.relu = nn.ReLU()
-        self.tanh = nn.Tanh()
+        self.softsign = nn.Softsign()
         if self.layer_norm :
             self.LN1 = nn.LayerNorm(hidden1)
             self.LN2 = nn.LayerNorm(hidden2)
@@ -41,7 +41,7 @@ class Actor(nn.Module):
             out = self.LN2(out)
         out = self.relu(out)
         out = self.fc3(out)
-        out = self.tanh(out)
+        out = self.softsign(out)
         return out
 
 class Critic(nn.Module):
