@@ -10,6 +10,7 @@ from logger import Singleton_logger
 from evaluator import Singleton_evaluator
 
 from ddpg import DDPG
+from DP_ddpg import DP_DDPG
 from AN_ddpg import action_noise_DDPG
 from PN_ddpg import parameter_noise_DDPG
 from SGLD_ddpg import SGLD_DDPG
@@ -40,12 +41,13 @@ class DDPG_trainer(object):
             self.env.seed(main_args['rand_seed'])
         nb_actions = self.env.action_space.shape[0]
         nb_states = self.env.observation_space.shape[0]
-        
         exploration_args = Singleton_arger()['exploration']
         if exploration_args['action_noise']:
             self.agent = action_noise_DDPG()
         elif exploration_args['parameter_noise']:
             self.agent = parameter_noise_DDPG()
+        elif exploration_args['dropout']:
+            self.agent = DP_DDPG()
         elif exploration_args['SGLD_mode'] > 0:
             self.agent = SGLD_DDPG()
         else:

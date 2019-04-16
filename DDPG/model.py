@@ -52,6 +52,7 @@ class Critic(nn.Module):
         self.fc2 = nn.Linear(hidden1+nb_actions, hidden2)
         self.fc3 = nn.Linear(hidden2, 1)
         self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(p=0.5)
         if self.layer_norm :
             self.LN1 = nn.LayerNorm(hidden1)
             self.LN2 = nn.LayerNorm(hidden2)
@@ -63,15 +64,19 @@ class Critic(nn.Module):
         self.fc2.weight.data = fanin_init(self.fc2.weight.data.size())
         self.fc3.weight.data.uniform_(-init_w, init_w)
     
-    def forward(self, xs):
+    def forward(self, xs,if_drop = False):
         x, a = xs
         out = self.fc1(x)
         if self.layer_norm :
             out = self.LN1(out)
+        if if_drop:
+            out = self.dropout(out)
         out = self.relu(out)
         out = self.fc2(torch.cat([out,a],1))
         if self.layer_norm :
             out = self.LN2(out)
+        if if_drop:
+            out = self.dropout(out)
         out = self.relu(out)
         out = self.fc3(out)
         return out

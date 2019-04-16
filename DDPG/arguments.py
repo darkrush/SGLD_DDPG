@@ -44,6 +44,8 @@ class Args(object):
         parser.set_defaults(action_noise=False)
         parser.add_argument('--parameter-noise', dest='parameter_noise', action='store_true',help='enable parameter space noise')
         parser.set_defaults(parameter_noise=False)
+        parser.add_argument('--dropout', dest='dropout', action='store_true',help='enable dropout')
+        parser.set_defaults(dropout=False)
         parser.add_argument('--stddev', default=0.6, type=float, help='action noise stddev')
         parser.add_argument('--noise-decay', default=0, type=float, help='action noise decay')
         parser.add_argument('--SGLD-mode', default=0, type=int, help='SGLD mode, 0: no SGLD, 1: actor sgld only, 2: critic sgld only, 3: both actor & critic')
@@ -82,7 +84,7 @@ class Args(object):
         args_main  = { key :  args.__dict__[key] for key in ('output','env', 'exp_name', 'result_dir','multi_process','rand_seed')}
         args_model = { key :  args.__dict__[key] for key in ('hidden1', 'hidden2', 'layer_norm')}
         args_train = { key :  args.__dict__[key] for key in ('nb_epoch', 'nb_cycles_per_epoch', 'nb_rollout_steps', 'nb_train_steps', 'nb_warmup_steps', 'train_mode')}
-        args_exploration = {key : args.__dict__[key] for key in ('action_noise','parameter_noise','stddev','noise_decay','SGLD_mode','SGLD_noise','num_pseudo_batches','nb_rollout_update','temp')}
+        args_exploration = {key : args.__dict__[key] for key in ('action_noise','parameter_noise','stddev','noise_decay','SGLD_mode','SGLD_noise','num_pseudo_batches','nb_rollout_update','temp','dropout')}
         args_agent = { key :  args.__dict__[key] for key in ('actor_lr','critic_lr','lr_decay','l2_critic','batch_size','discount','tau','buffer_size','with_cuda')}
         
         self.args_dict={'main':args_main, 'model':args_model, 'train':args_train, 'exploration':args_exploration, 'agent':args_agent}
