@@ -14,11 +14,11 @@ class Args(object):
         parser.add_argument('--result-dir',default=None, type=str, help='whole result dir name')
         
         #Training args
-        parser.add_argument('--nb-epoch', default=500, type=int, help='number of epochs')
-        parser.add_argument('--nb-cycles-per-epoch', default=20, type=int, help='number of cycles per epoch')
+        parser.add_argument('--nb-epoch', default=100, type=int, help='number of epochs')
+        parser.add_argument('--nb-cycles-per-epoch', default=100, type=int, help='number of cycles per epoch')
         parser.add_argument('--nb-rollout-steps', default=100, type=int, help='number rollout steps')
-        parser.add_argument('--nb-train-steps', default=50, type=int, help='number train steps')
-        parser.add_argument('--max-episode-length', default=1000, type=int, help='max steps in one episode')
+        parser.add_argument('--nb-train-steps', default=100, type=int, help='number train steps')
+        #parser.add_argument('--max-episode-length', default=1000, type=int, help='max steps in one episode')
         parser.add_argument('--nb-warmup-steps', default=100, type=int, help='time without training but only filling the replay memory')
         parser.add_argument('--train-mode', default=0, type=int, help='traing mode')
         

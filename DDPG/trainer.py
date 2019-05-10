@@ -68,7 +68,7 @@ class DDPG_trainer(object):
         self.agent.reset_noise()
         
     def warmup(self):
-        for t_warmup in range(self.nb_warmup_steps):
+        for warmup_step in range(self.nb_warmup_steps):
             #pick action by actor randomly
             self.apply_action(np.random.uniform(-1.,1.,self.action_space))
                 
@@ -131,17 +131,19 @@ class DDPG_trainer(object):
         
     def apply_action(self, action):
         #apply the action to environment and get next state, reawrd and other information
-        obs, reward, done, time_done, info = self.env.step(action * self.action_scale + self.action_bias)
+        obs, reward, done, info = self.env.step(action * self.action_scale + self.action_bias)
         self.current_episode_reward += reward
         self.current_episode_length += 1
         obs = deepcopy(obs)
-        
+        timedone = info.get('TimeLimit.truncated',False)
+        if timedone and done:
+            done = False
         #store the transition into agent's replay buffer and update last observation
         self.agent.store_transition(self.last_observation, action,np.array([reward,]), obs, np.array([done,],dtype = np.float32))
         self.last_observation = deepcopy(obs)
         
         #if current episode is done
-        if done or time_done:
+        if timedone or done:
             self.last_observation = deepcopy(self.env.reset())
             self.agent.reset_noise()
             self.last_episode_reward = self.current_episode_reward

@@ -82,8 +82,7 @@ class Evaluator(object):
                     action = self.actor(obs).cpu().numpy().squeeze(0)
                 action = np.clip(action, -1., 1.)
                 action = action * self.action_scale + self.action_bias
-                observation, reward, done,time_done, info = self.env.step(action)
-                done = done or time_done
+                observation, reward, done, info = self.env.step(action)
                 if self.visualize & (episode == 0):
                     self.env.render(mode='human')
 
